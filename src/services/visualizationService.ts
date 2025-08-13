@@ -1,6 +1,10 @@
 import { VisualizationData, VectorEmbedding, SemanticCluster, ProcessingMetadata, KnowledgeGraph } from '../types/visualization';
 import { KnowledgeItem } from '../types';
 
+const API_BASE = import.meta.env.DEV 
+  ? 'http://localhost:8787/api'
+  : 'https://knowledge-base-api.benjiemalinao879557.workers.dev/api';
+
 // Generate mock vector embeddings
 function generateMockEmbedding(sourceId: string, dimensions: number = 384): VectorEmbedding {
   return {
@@ -130,29 +134,49 @@ function generateKnowledgeGraph(items: KnowledgeItem[], clusters: SemanticCluste
 }
 
 export async function getVisualizationData(items: KnowledgeItem[]): Promise<VisualizationData> {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 800));
+  try {
+    const response = await fetch(`${API_BASE}/visualizations`);
+    const data = await response.json();
+    
+    // Transform the data to match our types
+    return {
+      embeddings: data.embeddings.map((e: any) => ({
+        ...e,
+        vector: Array.from({ length: 384 }, () => Math.random() * 2 - 1), // Mock vectors for now
+        createdAt: new Date(e.createdAt)
+      })),
+      clusters: data.clusters.map((c: any) => ({
+        ...c,
+        centroid: Array.from({ length: 384 }, () => Math.random() * 2 - 1) // Mock centroids
+      })),
+      metadata: data.metadata,
+      knowledgeGraph: data.knowledgeGraph,
+      stats: data.stats
+    };
+  } catch (error) {
+    console.error('Failed to fetch visualization data:', error);
+    // Fallback to generating mock data if API fails
+    const embeddings = items.flatMap(item => 
+      Array.from({ length: Math.floor(Math.random() * 3) + 1 }, () => generateMockEmbedding(item.id))
+    );
 
-  const embeddings = items.flatMap(item => 
-    Array.from({ length: Math.floor(Math.random() * 3) + 1 }, () => generateMockEmbedding(item.id))
-  );
+    const clusters = generateSemanticClusters(items);
+    const metadata = generateProcessingMetadata(items);
+    const knowledgeGraph = generateKnowledgeGraph(items, clusters);
 
-  const clusters = generateSemanticClusters(items);
-  const metadata = generateProcessingMetadata(items);
-  const knowledgeGraph = generateKnowledgeGraph(items, clusters);
+    const stats = {
+      totalVectors: embeddings.length,
+      avgSimilarity: Math.random() * 0.4 + 0.6,
+      clusterCount: clusters.length,
+      processingEfficiency: Math.random() * 0.3 + 0.7,
+    };
 
-  const stats = {
-    totalVectors: embeddings.length,
-    avgSimilarity: Math.random() * 0.4 + 0.6,
-    clusterCount: clusters.length,
-    processingEfficiency: Math.random() * 0.3 + 0.7,
-  };
-
-  return {
-    embeddings,
-    clusters,
-    metadata,
-    knowledgeGraph,
-    stats,
-  };
+    return {
+      embeddings,
+      clusters,
+      metadata,
+      knowledgeGraph,
+      stats,
+    };
+  }
 }

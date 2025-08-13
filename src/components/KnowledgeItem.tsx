@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
-import { FileText, Link, MessageSquare, Trash2, ExternalLink, Calendar, Tag } from 'lucide-react';
+import { FileText, Link, MessageSquare, Trash2, ExternalLink, Calendar, Tag, Edit, Copy, Check } from 'lucide-react';
 import { KnowledgeItem as KnowledgeItemType } from '../types';
 import { formatFileSize } from '../utils/validation';
 
 interface KnowledgeItemProps {
   item: KnowledgeItemType;
   onDelete: (id: string) => void;
+  onEdit: (item: KnowledgeItemType) => void;
 }
 
-export function KnowledgeItem({ item, onDelete }: KnowledgeItemProps) {
+export function KnowledgeItem({ item, onDelete, onEdit }: KnowledgeItemProps) {
   const [isDeleting, setIsDeleting] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const handleDelete = async () => {
     setIsDeleting(true);
@@ -17,6 +19,16 @@ export function KnowledgeItem({ item, onDelete }: KnowledgeItemProps) {
       await onDelete(item.id);
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleCopyId = async () => {
+    try {
+      await navigator.clipboard.writeText(item.id);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      console.error('Failed to copy ID:', error);
     }
   };
 
@@ -60,6 +72,13 @@ export function KnowledgeItem({ item, onDelete }: KnowledgeItemProps) {
               <h3 className="text-sm font-semibold text-gray-900 truncate">
                 {item.title}
               </h3>
+              <span 
+                className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-md font-mono cursor-pointer hover:bg-gray-200 transition-colors"
+                onClick={handleCopyId}
+                title={`Click to copy ID: ${item.id}`}
+              >
+                {item.id.slice(0, 8)}...
+              </span>
               <span className={`px-3 py-1 text-xs font-semibold rounded-full ${getStatusColor()} shadow-sm`}>
                 {item.status}
               </span>
@@ -116,14 +135,42 @@ export function KnowledgeItem({ item, onDelete }: KnowledgeItemProps) {
           </div>
         </div>
 
-        <button
-          onClick={handleDelete}
-          disabled={isDeleting}
-          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200 disabled:opacity-50 hover:scale-110 focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
-          aria-label={`Delete ${item.title}`}
-        >
-          <Trash2 className={`h-4 w-4 ${isDeleting ? 'animate-pulse' : ''}`} />
-        </button>
+        <div className="flex gap-1">
+          <div className="relative">
+            <button
+              onClick={handleCopyId}
+              className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all duration-200 hover:scale-110 focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+              aria-label={`Copy ID for ${item.title}`}
+              title={`Copy ID: ${item.id}`}
+            >
+              {copied ? (
+                <Check className="h-4 w-4 text-green-600" />
+              ) : (
+                <Copy className="h-4 w-4" />
+              )}
+            </button>
+            {copied && (
+              <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                ID Copied!
+              </div>
+            )}
+          </div>
+          <button
+            onClick={() => onEdit(item)}
+            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200 hover:scale-110 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            aria-label={`Edit ${item.title}`}
+          >
+            <Edit className="h-4 w-4" />
+          </button>
+          <button
+            onClick={handleDelete}
+            disabled={isDeleting}
+            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200 disabled:opacity-50 hover:scale-110 focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+            aria-label={`Delete ${item.title}`}
+          >
+            <Trash2 className={`h-4 w-4 ${isDeleting ? 'animate-pulse' : ''}`} />
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -1,60 +1,22 @@
 import { KnowledgeItem, KnowledgeStats } from '../types';
 
-// Mock data for demonstration
-const mockKnowledgeItems: KnowledgeItem[] = [
-  {
-    id: '1',
-    type: 'file',
-    title: 'Kitchen Renovation Guide.pdf',
-    fileType: 'pdf',
-    size: 2400000,
-    addedAt: new Date('2024-12-15'),
-    status: 'active',
-    tags: ['kitchen', 'renovation', 'guide']
-  },
-  {
-    id: '2',
-    type: 'link',
-    title: 'Home Depot - Bathroom Tiles',
-    url: 'https://www.homedepot.com/bathroom-tiles',
-    addedAt: new Date('2024-12-14'),
-    status: 'active',
-    tags: ['bathroom', 'tiles', 'materials']
-  },
-  {
-    id: '3',
-    type: 'file',
-    title: 'Electrical Wiring Basics.docx',
-    fileType: 'docx',
-    size: 1800000,
-    addedAt: new Date('2024-12-13'),
-    status: 'active',
-    tags: ['electrical', 'wiring', 'safety']
-  },
-  {
-    id: '4',
-    type: 'context',
-    title: 'Living Room Renovation Context',
-    content: 'Planning to renovate a 15x20 living room with hardwood floors, budget of $15,000, modern farmhouse style preferred.',
-    addedAt: new Date('2024-12-12'),
-    status: 'active',
-    tags: ['living room', 'budget', 'farmhouse']
-  },
-  {
-    id: '5',
-    type: 'link',
-    title: 'DIY Plumbing Repairs',
-    url: 'https://www.familyhandyman.com/plumbing-repairs',
-    addedAt: new Date('2024-12-11'),
-    status: 'processing',
-    tags: ['plumbing', 'diy', 'repairs']
-  }
-];
+const API_BASE = import.meta.env.DEV 
+  ? 'http://localhost:8787/api'
+  : 'https://knowledge-base-api.benjiemalinao879557.workers.dev/api';
 
 export async function getKnowledgeItems(): Promise<KnowledgeItem[]> {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 500));
-  return mockKnowledgeItems;
+  try {
+    const response = await fetch(`${API_BASE}/knowledge`);
+    const data = await response.json();
+    return data.items.map((item: any) => ({
+      ...item,
+      addedAt: new Date(item.addedAt),
+      fileType: item.file_type
+    }));
+  } catch (error) {
+    console.error('Failed to fetch knowledge items:', error);
+    return [];
+  }
 }
 
 export async function getKnowledgeStats(): Promise<KnowledgeStats> {
@@ -69,30 +31,47 @@ export async function getKnowledgeStats(): Promise<KnowledgeStats> {
   };
 }
 
-export async function deleteKnowledgeItem(id: string): Promise<boolean> {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 300));
-  
-  // In a real app, this would make an API call
-  const index = mockKnowledgeItems.findIndex(item => item.id === id);
-  if (index > -1) {
-    mockKnowledgeItems.splice(index, 1);
-    return true;
+export async function updateKnowledgeItem(id: string, data: Partial<KnowledgeItem>): Promise<boolean> {
+  try {
+    const response = await fetch(`${API_BASE}/knowledge/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return response.ok;
+  } catch (error) {
+    console.error('Failed to update knowledge item:', error);
+    return false;
   }
-  return false;
+}
+
+export async function deleteKnowledgeItem(id: string): Promise<boolean> {
+  try {
+    const response = await fetch(`${API_BASE}/knowledge/${id}`, {
+      method: 'DELETE'
+    });
+    return response.ok;
+  } catch (error) {
+    console.error('Failed to delete knowledge item:', error);
+    return false;
+  }
 }
 
 export async function searchKnowledgeItems(query: string): Promise<KnowledgeItem[]> {
-  await new Promise(resolve => setTimeout(resolve, 300));
-  
-  if (!query.trim()) {
-    return mockKnowledgeItems;
+  try {
+    if (!query.trim()) {
+      return getKnowledgeItems();
+    }
+    
+    const response = await fetch(`${API_BASE}/search?q=${encodeURIComponent(query)}`);
+    const data = await response.json();
+    return data.results.map((item: any) => ({
+      ...item,
+      addedAt: new Date(item.added_at),
+      fileType: item.file_type
+    }));
+  } catch (error) {
+    console.error('Failed to search knowledge items:', error);
+    return [];
   }
-  
-  const lowercaseQuery = query.toLowerCase();
-  return mockKnowledgeItems.filter(item => 
-    item.title.toLowerCase().includes(lowercaseQuery) ||
-    item.content?.toLowerCase().includes(lowercaseQuery) ||
-    item.tags?.some(tag => tag.toLowerCase().includes(lowercaseQuery))
-  );
 }

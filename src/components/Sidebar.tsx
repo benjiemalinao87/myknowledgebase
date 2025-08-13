@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { Database, Plus, Brain, Home, Menu, X, ChevronRight, Settings, HelpCircle } from 'lucide-react';
 
 interface SidebarProps {
-  currentView: 'dashboard' | 'add-sources' | 'visualization';
-  onViewChange: (view: 'dashboard' | 'add-sources' | 'visualization') => void;
+  currentView: 'dashboard' | 'add-sources' | 'visualization' | 'settings';
+  onViewChange: (view: 'dashboard' | 'add-sources' | 'visualization' | 'settings') => void;
   knowledgeItemsCount: number;
 }
 
@@ -138,7 +138,15 @@ export function Sidebar({ currentView, onViewChange, knowledgeItemsCount }: Side
           return (
             <button
               key={item.id}
-              className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all duration-200 group ${item.hoverColor} hover:shadow-sm`}
+              onClick={() => {
+                if (item.id === 'settings') {
+                  onViewChange('settings');
+                  setIsMobileOpen(false);
+                }
+              }}
+              className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all duration-200 group ${item.hoverColor} hover:shadow-sm ${
+                currentView === item.id ? 'bg-blue-50 border border-blue-200' : ''
+              }`}
             >
               <div className="p-2 rounded-lg bg-gray-100 group-hover:bg-white group-hover:shadow-sm transition-all duration-200">
                 <Icon className="h-4 w-4 text-gray-600" />

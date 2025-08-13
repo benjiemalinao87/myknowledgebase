@@ -6,14 +6,15 @@ import { StatusBar } from './components/StatusBar';
 import { KnowledgeDashboard } from './components/KnowledgeDashboard';
 import { VisualizationDashboard } from './components/VisualizationDashboard';
 import { AddSourcesView } from './components/AddSourcesView';
+import { Settings } from './components/Settings';
 import { Footer } from './components/Footer';
 import { NavigationGuide } from './components/NavigationGuide';
 import { getKnowledgeItems } from './services/knowledgeService';
 import { KnowledgeItem } from './types';
-import { Database, Plus, Brain } from 'lucide-react';
+import { Database, Plus, Brain, Settings as SettingsIcon } from 'lucide-react';
 
 function App() {
-  const [currentView, setCurrentView] = useState<'dashboard' | 'add-sources' | 'visualization'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'add-sources' | 'visualization' | 'settings'>('dashboard');
   const [knowledgeItems, setKnowledgeItems] = useState<KnowledgeItem[]>([]);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -50,6 +51,11 @@ function App() {
       title: 'AI Processing Visualization',
       subtitle: 'Explore how AI processes and organizes your knowledge for intelligent responses',
       icon: Brain
+    },
+    settings: {
+      title: 'Settings',
+      subtitle: 'Configure personas, AI settings, and API configuration',
+      icon: SettingsIcon
     }
   };
 
@@ -69,6 +75,9 @@ function App() {
           break;
         case '3':
           setCurrentView('visualization');
+          break;
+        case '4':
+          setCurrentView('settings');
           break;
       }
     };
@@ -100,6 +109,8 @@ function App() {
           <KnowledgeDashboard onAddSources={() => setCurrentView('add-sources')} />
         ) : currentView === 'visualization' ? (
           <VisualizationDashboard knowledgeItems={knowledgeItems} />
+        ) : currentView === 'settings' ? (
+          <Settings />
         ) : (
           <AddSourcesView onSuccess={handleSourcesAdded} />
         )}

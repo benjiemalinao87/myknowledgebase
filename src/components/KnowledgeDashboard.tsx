@@ -4,7 +4,8 @@ import { KnowledgeItem, KnowledgeStats } from '../types';
 import { KnowledgeStats as StatsComponent } from './KnowledgeStats';
 import { KnowledgeSearch } from './KnowledgeSearch';
 import { KnowledgeItem as ItemComponent } from './KnowledgeItem';
-import { getKnowledgeItems, getKnowledgeStats, deleteKnowledgeItem, searchKnowledgeItems } from '../services/knowledgeService';
+import { EditKnowledgeModal } from './EditKnowledgeModal';
+import { getKnowledgeItems, getKnowledgeStats, deleteKnowledgeItem, updateKnowledgeItem, searchKnowledgeItems } from '../services/knowledgeService';
 
 interface KnowledgeDashboardProps {
   onAddSources: () => void;
@@ -18,6 +19,7 @@ export function KnowledgeDashboard({ onAddSources }: KnowledgeDashboardProps) {
   const [refreshing, setRefreshing] = useState(false);
   const [sortBy, setSortBy] = useState<'date' | 'name' | 'type'>('date');
   const [filterBy, setFilterBy] = useState<'all' | 'file' | 'link' | 'context'>('all');
+  const [editingItem, setEditingItem] = useState<KnowledgeItem | null>(null);
 
   const loadData = async () => {
     try {
@@ -48,6 +50,22 @@ export function KnowledgeDashboard({ onAddSources }: KnowledgeDashboardProps) {
       console.error('Search failed:', error);
     } finally {
       setSearchLoading(false);
+    }
+  };
+
+  const handleEdit = (item: KnowledgeItem) => {
+    setEditingItem(item);
+  };
+
+  const handleSaveEdit = async (id: string, data: Partial<KnowledgeItem>) => {
+    try {
+      const success = await updateKnowledgeItem(id, data);
+      if (success) {
+        // Refresh data to show updates
+        await loadData();
+      }
+    } catch (error) {
+      console.error('Failed to update item:', error);
     }
   };
 
@@ -198,9 +216,19 @@ export function KnowledgeDashboard({ onAddSources }: KnowledgeDashboardProps) {
               key={item.id}
               item={item}
               onDelete={handleDelete}
+              onEdit={handleEdit}
             />
           ))}
         </div>
+      )}
+
+      {editingItem && (
+        <EditKnowledgeModal
+          item={editingItem}
+          isOpen={!!editingItem}
+          onClose={() => setEditingItem(null)}
+          onSave={handleSaveEdit}
+        />
       )}
     </div>
   );
