@@ -402,6 +402,31 @@ async function handleChat(request: Request, env: Env): Promise<Response> {
   } = await request.json() as any;
 
   try {
+    // Get AI settings from database
+    let aiSettings = {
+      maxTokens: 200,
+      temperature: 0.8,
+      smsMode: false,
+      responseLength: 160
+    };
+    
+    try {
+      const { results } = await env.DB.prepare(
+        'SELECT * FROM ai_settings ORDER BY updated_at DESC LIMIT 1'
+      ).all();
+      
+      if (results && results.length > 0) {
+        const dbSettings = results[0] as any;
+        aiSettings = {
+          maxTokens: dbSettings.max_tokens || 200,
+          temperature: dbSettings.temperature || 0.8,
+          smsMode: !!dbSettings.sms_mode,
+          responseLength: dbSettings.response_length || 160
+        };
+      }
+    } catch (settingsError) {
+      console.log('Using default AI settings:', settingsError);
+    }
     // Stage 1: Get persona from database
     let persona;
     
@@ -651,8 +676,8 @@ Be precise and professional.`;
           body: JSON.stringify({
             model: 'gpt-4o',
             messages: messages,
-            max_tokens: 60, // Keep it short for SMS
-            temperature: 0.8, // More natural/varied responses
+            max_tokens: aiSettings.maxTokens,
+            temperature: aiSettings.temperature,
             presence_penalty: 0.3, // Avoid repetition
             frequency_penalty: 0.3
           })
@@ -663,8 +688,12 @@ Be precise and professional.`;
         let cleanAnswer = openAIData.choices[0].message.content
           // Just basic cleanup - OpenAI already gives natural responses
           .trim()
-          .replace(/^["']|["']$/g, '') // Remove quotes if wrapped
-          .substring(0, 160); // Hard limit for SMS
+          .replace(/^["']|["']$/g, ''); // Remove quotes if wrapped
+        
+        // Apply SMS length limit only if SMS mode is enabled
+        if (aiSettings.smsMode) {
+          cleanAnswer = cleanAnswer.substring(0, aiSettings.responseLength);
+        }
 
         response = {
           answer: cleanAnswer,
@@ -1045,16 +1074,37 @@ async function handleDeletePersona(id: string, env: Env): Promise<Response> {
 // Handler: Get AI settings
 async function handleGetAISettings(env: Env): Promise<Response> {
   try {
-    const settings = {
-      provider: 'openai',
-      model: 'gpt-4o',
-      maxTokens: 60,
-      temperature: 0.8,
-      smsMode: true,
-      responseLength: 160,
-      hasOpenAIKey: !!env.OPENAI_API_KEY,
-      hasCloudflareAI: !!env.AI
-    };
+    // Try to get settings from database first
+    const { results } = await env.DB.prepare(
+      'SELECT * FROM ai_settings ORDER BY updated_at DESC LIMIT 1'
+    ).all();
+
+    let settings;
+    if (results && results.length > 0) {
+      const dbSettings = results[0] as any;
+      settings = {
+        provider: dbSettings.provider || 'openai',
+        model: dbSettings.model || 'gpt-4o',
+        maxTokens: dbSettings.max_tokens || 200,
+        temperature: dbSettings.temperature || 0.8,
+        smsMode: !!dbSettings.sms_mode,
+        responseLength: dbSettings.response_length || 160,
+        hasOpenAIKey: !!env.OPENAI_API_KEY,
+        hasCloudflareAI: !!env.AI
+      };
+    } else {
+      // Fallback to default settings
+      settings = {
+        provider: 'openai',
+        model: 'gpt-4o',
+        maxTokens: 200,
+        temperature: 0.8,
+        smsMode: false,
+        responseLength: 160,
+        hasOpenAIKey: !!env.OPENAI_API_KEY,
+        hasCloudflareAI: !!env.AI
+      };
+    }
 
     return new Response(JSON.stringify({ settings }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -1073,7 +1123,19 @@ async function handleUpdateAISettings(request: Request, env: Env): Promise<Respo
   try {
     const settings = await request.json() as any;
     
-    // For now, return success - in production you'd save to database/environment
+    // Update or insert AI settings in database
+    await env.DB.prepare(`
+      INSERT OR REPLACE INTO ai_settings (id, provider, model, max_tokens, temperature, sms_mode, response_length, updated_at)
+      VALUES (1, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    `).bind(
+      settings.provider || 'openai',
+      settings.model || 'gpt-4o', 
+      settings.maxTokens || 200,
+      settings.temperature || 0.8,
+      settings.smsMode ? 1 : 0,
+      settings.responseLength || 160
+    ).run();
+    
     return new Response(JSON.stringify({
       success: true,
       message: 'AI settings updated successfully',

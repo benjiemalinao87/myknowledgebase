@@ -348,6 +348,34 @@ export const Settings: React.FC = () => {
                       className="px-3 py-2 border rounded-lg col-span-2"
                       rows={3}
                     />
+                    <textarea
+                      placeholder="Personality Traits (one per line) e.g., Analytical, Empathetic, Results-driven"
+                      value={Array.isArray(newPersona.personalityTraits) ? newPersona.personalityTraits.join('\n') : newPersona.personalityTraits || ''}
+                      onChange={(e) => setNewPersona(prev => ({ ...prev, personalityTraits: e.target.value.split('\n').filter(p => p.trim()) }))}
+                      className="px-3 py-2 border rounded-lg col-span-2"
+                      rows={3}
+                    />
+                    <textarea
+                      placeholder="Skills (JSON format) e.g., [{'name':'Objection Handling','description':'Handle customer concerns','steps':['Listen actively','Acknowledge concern','Provide solution']}]"
+                      value={newPersona.skills || ''}
+                      onChange={(e) => setNewPersona(prev => ({ ...prev, skills: e.target.value }))}
+                      className="px-3 py-2 border rounded-lg col-span-2 font-mono text-sm"
+                      rows={4}
+                    />
+                    <textarea
+                      placeholder="Success Metrics (one per line) e.g., Conversion rate >40%, Customer satisfaction >4.5/5"
+                      value={Array.isArray(newPersona.successMetrics) ? newPersona.successMetrics.join('\n') : newPersona.successMetrics || ''}
+                      onChange={(e) => setNewPersona(prev => ({ ...prev, successMetrics: e.target.value.split('\n').filter(s => s.trim()) }))}
+                      className="px-3 py-2 border rounded-lg col-span-2"
+                      rows={3}
+                    />
+                    <textarea
+                      placeholder="Context Awareness (one per line) e.g., Current market conditions, Regional preferences, Industry trends"
+                      value={Array.isArray(newPersona.contextAwareness) ? newPersona.contextAwareness.join('\n') : newPersona.contextAwareness || ''}
+                      onChange={(e) => setNewPersona(prev => ({ ...prev, contextAwareness: e.target.value.split('\n').filter(c => c.trim()) }))}
+                      className="px-3 py-2 border rounded-lg col-span-2"
+                      rows={3}
+                    />
                   </div>
                   <div className="flex justify-end mt-4 space-x-2">
                     <button

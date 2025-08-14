@@ -61,30 +61,7 @@ function App() {
 
   const currentConfig = viewConfig[currentView];
 
-  // Keyboard navigation
-  useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
-      if (e.altKey || e.ctrlKey || e.metaKey) return;
-      
-      switch (e.key) {
-        case '1':
-          setCurrentView('dashboard');
-          break;
-        case '2':
-          setCurrentView('add-sources');
-          break;
-        case '3':
-          setCurrentView('visualization');
-          break;
-        case '4':
-          setCurrentView('settings');
-          break;
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, []);
+  // Keyboard navigation removed to avoid conflicts with input fields
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-purple-50/20">

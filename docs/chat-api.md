@@ -1,68 +1,56 @@
 # Chat API
 
-The Chat API enables AI-powered conversations using configured personas. Generate responses, maintain conversation history, and customize AI behavior.
+The Chat API enables AI-powered conversations using configured personas. Generate responses, maintain conversation history, and access knowledge base items.
 
 ## 📋 Endpoints
 
-- [Create Chat Completion](#create-chat-completion)
+- [Send Chat Message](#send-chat-message)
 
 ---
 
-## Create Chat Completion
+## Send Chat Message
 
-Generate an AI response using a selected persona and conversation context.
+Send a message and receive an AI-powered response using a selected persona with optional knowledge base integration.
 
 ### Request
 
 ```http
-POST /api/chat/completions
+POST /api/chat
 ```
 
 ### Headers
 
 ```bash
-Authorization: Bearer YOUR_API_KEY
 Content-Type: application/json
 ```
+
+Note: This endpoint does not require an Authorization header.
 
 ### Request Body
 
 ```json
 {
-  "personaId": "home-improvement-expert",
-  "messages": [
-    {
-      "role": "user",
-      "content": "I want to install new kitchen cabinets. What should I consider first?"
-    }
-  ],
-  "settings": {
-    "maxTokens": 500,
-    "temperature": 0.7,
-    "smsMode": false
-  }
+  "message": "I want to install new kitchen cabinets. What should I consider first?",
+  "personaId": "appointment-setter",
+  "user_id": "+16266635938",
+  "remember_history": true,
+  "useAI": true,
+  "knowledgeIds": ["item_1755047136767_or03emzq6"]
 }
 ```
 
 ### cURL Example
 
 ```bash
-curl -X POST "http://localhost:8787/api/chat/completions" \
-  -H "Authorization: Bearer kb_live_1234567890abcdef" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "personaId": "home-improvement-expert",
-    "messages": [
-      {
-        "role": "user",
-        "content": "I want to install new kitchen cabinets. What should I consider first?"
-      }
-    ],
-    "settings": {
-      "maxTokens": 500,
-      "temperature": 0.7,
-      "smsMode": false
-    }
+curl --location 'https://knowledge-base-api.benjiemalinao879557.workers.dev/api/chat' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "message": "I want to install new kitchen cabinets. What should I consider first?",
+    "personaId": "appointment-setter",
+    "user_id": "+16266635938",
+    "remember_history": true,
+    "useAI": true,
+    "knowledgeIds": ["item_1755047136767_or03emzq6"]
   }'
 ```
 
@@ -70,32 +58,33 @@ curl -X POST "http://localhost:8787/api/chat/completions" \
 
 ```json
 {
-  "status": "success",
-  "data": {
-    "id": "chatcmpl-8x9y7z1234567890",
-    "object": "chat.completion",
-    "created": 1708123456,
-    "model": "gpt-4o",
-    "persona": {
-      "id": "home-improvement-expert",
-      "name": "Home Improvement Expert"
-    },
-    "choices": [
-      {
-        "index": 0,
-        "message": {
-          "role": "assistant",
-          "content": "Great question! Installing kitchen cabinets is a significant project. Here are the key things to consider first:\n\n**1. Measure Accurately**\n- Measure your kitchen space multiple times\n- Account for appliances, plumbing, and electrical outlets\n- Check for level floors and plumb walls\n\n**2. Plan the Layout**\n- Consider the kitchen work triangle (sink, stove, refrigerator)\n- Plan for adequate counter space\n- Think about storage needs and accessibility\n\n**3. Choose Cabinet Style**\n- Face-frame vs. frameless construction\n- Door styles and materials\n- Hardware selection\n\n**4. Budget Considerations**\n- Cabinet costs typically range from $3,000-$20,000+\n- Factor in installation, countertops, and hardware\n- Consider DIY vs. professional installation\n\n**5. Permits and Codes**\n- Check if permits are needed for electrical/plumbing changes\n- Ensure compliance with local building codes\n\nWould you like me to elaborate on any of these areas or discuss your specific kitchen layout?"
-        },
-        "finish_reason": "stop"
-      }
-    ],
-    "usage": {
-      "prompt_tokens": 150,
-      "completion_tokens": 245,
-      "total_tokens": 395
-    },
-    "responseTime": 2340
+  "answer": "Great question! Installing kitchen cabinets is a significant project. Here are the key things to consider first:\n\n**1. Measure Accurately**\n- Measure your kitchen space multiple times\n- Account for appliances, plumbing, and electrical outlets\n- Check for level floors and plumb walls\n\n**2. Plan the Layout**\n- Consider the kitchen work triangle (sink, stove, refrigerator)\n- Plan for adequate counter space\n- Think about storage needs and accessibility\n\n**3. Choose Cabinet Style**\n- Face-frame vs. frameless construction\n- Door styles and materials\n- Hardware selection\n\n**4. Budget Considerations**\n- Cabinet costs typically range from $3,000-$20,000+\n- Factor in installation, countertops, and hardware\n- Consider DIY vs. professional installation\n\n**5. Permits and Codes**\n- Check if permits are needed for electrical/plumbing changes\n- Ensure compliance with local building codes\n\nWould you like me to elaborate on any of these areas or discuss your specific kitchen layout?",
+  "sources": [
+    {
+      "id": "item_1755047136767_or03emzq6",
+      "title": "Kitchen Cabinet Installation Guide",
+      "relevance": 0.92
+    }
+  ],
+  "persona": {
+    "id": "appointment-setter",
+    "name": "Appointment Setter",
+    "role": "Professional Scheduling Coordinator & Date/Time Specialist"
+  },
+  "context": {
+    "intent": "home_improvement_inquiry",
+    "category": "kitchen_renovation",
+    "urgency": "medium",
+    "complexity": "high"
+  },
+  "aiGenerated": true,
+  "confidence": 0.95,
+  "processing_time": 1240,
+  "conversation": {
+    "user_id": "+16266635938",
+    "session_id": "sess_1708123456789",
+    "history_saved": true,
+    "history_count": 1
   }
 }
 ```
@@ -106,65 +95,137 @@ curl -X POST "http://localhost:8787/api/chat/completions" \
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
+| `message` | string | The user's message/question |
 | `personaId` | string | ID of the persona to use for the response |
-| `messages` | array | Array of conversation messages |
+| `user_id` | string | Unique identifier for the user (phone number or user ID) |
 
 #### Optional Parameters
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `settings` | object | - | AI generation settings |
-| `conversationId` | string | - | ID for conversation continuity |
-| `stream` | boolean | false | Enable streaming responses |
+| `remember_history` | boolean | false | Whether to save and use conversation history |
+| `useAI` | boolean | true | Enable AI-powered responses |
+| `knowledgeIds` | array | [] | Array of knowledge base item IDs to reference |
 
-#### Settings Object
+### Response Fields
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `maxTokens` | integer | 500 | Maximum tokens in response |
-| `temperature` | float | 0.7 | Randomness (0.0-2.0) |
-| `smsMode` | boolean | false | Limit response to SMS length |
-| `responseLength` | integer | 160 | Max chars when SMS mode enabled |
+| Field | Type | Description |
+|-------|------|-------------|
+| `answer` | string | AI-generated response to the user's message |
+| `sources` | array | Knowledge base sources used in the response |
+| `persona` | object | Information about the persona used |
+| `context` | object | Contextual analysis of the request |
+| `aiGenerated` | boolean | Whether the response was AI-generated |
+| `confidence` | float | Confidence score (0.0-1.0) |
+| `processing_time` | integer | Response generation time in milliseconds |
+| `conversation` | object | Conversation metadata and history info |
 
-#### Message Object
+## 🎭 Available Personas
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `role` | string | Message role: `user`, `assistant`, `system` |
-| `content` | string | Message content |
-| `timestamp` | string | ISO timestamp (optional) |
+The following personas are currently available in the system. Each persona has unique expertise and communication styles:
+
+### 1. Appointment Setter
+- **ID**: `appointment-setter`
+- **Role**: Professional Scheduling Coordinator & Date/Time Specialist
+- **Experience**: 8+ years in appointment scheduling, calendar management, and time zone coordination
+- **Primary Goal**: Accurately parse date/time requests and confirm appointments with precise scheduling details
+- **Communication Style**: Professional, precise, and confirmatory. Always repeats back parsed dates in multiple formats for clarity
+- **Expertise**: Natural language date parsing, time format conversion, calendar management, scheduling optimization
+
+### 2. Home Improvement Expert
+- **ID**: `home-improvement-expert`
+- **Role**: Senior Home Improvement Consultant
+- **Experience**: 15+ years in residential construction and renovation
+- **Primary Goal**: Provide expert guidance on home improvement projects with safety-first approach
+- **Communication Style**: Professional, helpful, detailed, and safety-conscious
+- **Expertise**: Kitchen renovations, bathroom remodeling, electrical basics, plumbing repairs, flooring installation
+
+### 3. Grosso Sales Master
+- **ID**: `grosso-sales-master`
+- **Role**: Seasoned Sales Leader
+- **Experience**: 10+ years in home improvement sales industry
+- **Primary Goal**: Mentor sales representatives and guide successful sales strategies
+- **Communication Style**: Confident, supportive, and knowledgeable. Uses proven sales techniques
+- **Expertise**: Sales strategy development, price negotiation, customer psychology, objection handling
+
+### 4. Technical Support Specialist
+- **ID**: `technical-support`
+- **Role**: Home Systems Technical Expert
+- **Experience**: 12+ years in HVAC, electrical, and plumbing systems
+- **Primary Goal**: Provide technical diagnostics and system maintenance guidance
+- **Communication Style**: Technical but accessible, patient, systematic problem-solver
+- **Expertise**: HVAC systems, electrical troubleshooting, plumbing systems, home automation
+
+### 5. Chris Voss (Master Negotiator)
+- **ID**: `chris-voss-negotiator`
+- **Role**: Master Negotiator & Tactical Empathy Expert
+- **Experience**: Former FBI hostage negotiator, author of Never Split the Difference
+- **Primary Goal**: Guide negotiations using tactical empathy and calibrated questions
+- **Communication Style**: Late-night FM DJ voice - deep, slow, and reassuring
+- **Expertise**: High-stakes negotiations, conflict resolution, sales psychology, tactical empathy
+
+### 6. John - Sales Manager & Closer
+- **ID**: `john-sales-manager`
+- **Role**: Elite Home Improvement Sales Manager & Closer
+- **Experience**: 20+ years in home improvement sales with proven track record of increasing conversion rates by 40-60%
+- **Primary Goal**: Convert leads into satisfied customers by combining expert sales techniques with genuine human connection and industry knowledge
+- **Communication Style**: Charismatic, empathetic, and results-driven. Adapts communication style to match customer personality
+- **Expertise**: Advanced closing techniques, customer psychology, value-based selling, relationship building, objection handling
+
+### Getting All Personas Programmatically
+
+You can fetch all available personas using the personas API endpoint:
+
+```bash
+curl --location 'https://knowledge-base-api.benjiemalinao879557.workers.dev/api/personas' \
+  --header 'Content-Type: application/json'
+```
 
 ---
 
 ## Advanced Examples
 
-### Multi-turn Conversation
+### Using Different Personas
 
+#### Home Improvement Expert for Technical Advice
 ```bash
-curl -X POST "http://localhost:8787/api/chat/completions" \
-  -H "Authorization: Bearer kb_live_1234567890abcdef" \
-  -H "Content-Type: application/json" \
-  -d '{
+curl --location 'https://knowledge-base-api.benjiemalinao879557.workers.dev/api/chat' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "message": "What should I consider when installing kitchen cabinets?",
     "personaId": "home-improvement-expert",
-    "conversationId": "conv-123456",
-    "messages": [
-      {
-        "role": "user",
-        "content": "I want to install new kitchen cabinets. What should I consider first?"
-      },
-      {
-        "role": "assistant",
-        "content": "Great question! Installing kitchen cabinets is a significant project. Here are the key things to consider first: [previous response content]"
-      },
-      {
-        "role": "user",
-        "content": "What tools will I need for installation?"
-      }
-    ],
-    "settings": {
-      "maxTokens": 400,
-      "temperature": 0.6
-    }
+    "user_id": "+16266635938",
+    "remember_history": true,
+    "useAI": true,
+    "knowledgeIds": []
+  }'
+```
+
+#### Sales Manager for Value Discussions
+```bash
+curl --location 'https://knowledge-base-api.benjiemalinao879557.workers.dev/api/chat' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "message": "I am interested in a kitchen renovation but I am concerned about the cost. Can you help me understand the value?",
+    "personaId": "john-sales-manager",
+    "user_id": "+16266635938", 
+    "remember_history": true,
+    "useAI": true,
+    "knowledgeIds": []
+  }'
+```
+
+#### Appointment Setter for Scheduling
+```bash
+curl --location 'https://knowledge-base-api.benjiemalinao879557.workers.dev/api/chat' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "message": "I would like to schedule a consultation for next Thursday at 2pm",
+    "personaId": "appointment-setter",
+    "user_id": "+16266635938",
+    "remember_history": true,
+    "useAI": true,
+    "knowledgeIds": []
   }'
 ```
 

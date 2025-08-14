@@ -85,7 +85,7 @@ The API uses standard HTTP response codes and returns error details in JSON form
 | `/personas` | POST | Create new persona |
 | `/personas/{id}` | PUT | Update persona |
 | `/personas/{id}` | DELETE | Delete persona |
-| `/chat/completions` | POST | Generate AI response |
+| `/chat` | POST | Send chat message and get AI response |
 | `/settings/ai` | GET | Get AI settings |
 | `/settings/ai` | PUT | Update AI settings |
 | `/settings/config` | PUT | Update system config |
@@ -104,10 +104,21 @@ The API uses standard HTTP response codes and returns error details in JSON form
 # Test the health endpoint (no auth required)
 curl -X GET "http://localhost:8787/api/health"
 
-# List personas (requires auth)
-curl -X GET "http://localhost:8787/api/personas" \
-  -H "Authorization: Bearer YOUR_API_KEY" \
-  -H "Content-Type: application/json"
+# List personas (no auth required)
+curl --location 'https://knowledge-base-api.benjiemalinao879557.workers.dev/api/personas' \
+  --header 'Content-Type: application/json'
+
+# Send chat message (no auth required)  
+curl --location 'https://knowledge-base-api.benjiemalinao879557.workers.dev/api/chat' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "message": "Hello, I need help with home improvement",
+    "personaId": "home-improvement-expert",
+    "user_id": "+16266635938",
+    "remember_history": true,
+    "useAI": true,
+    "knowledgeIds": []
+  }'
 ```
 
 ## 📖 Additional Resources

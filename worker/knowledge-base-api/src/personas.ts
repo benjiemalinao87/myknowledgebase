@@ -20,6 +20,9 @@ export interface Persona {
   skills: Skill[];
   constraints: string[];
   expertiseAreas: string[];
+  personalityTraits: string[];
+  successMetrics: string[];
+  contextAwareness: string[];
 }
 
 // Function to create a persona from DB data
@@ -34,42 +37,62 @@ export function createPersonaFromDB(dbPersona: any): Persona {
     responsibilities: dbPersona.responsibilities ? JSON.parse(dbPersona.responsibilities) : [dbPersona.role],
     skills: dbPersona.skills ? JSON.parse(dbPersona.skills) : [],
     constraints: dbPersona.constraints ? JSON.parse(dbPersona.constraints) : ['Be helpful and accurate', 'Stay within role boundaries'],
-    expertiseAreas: dbPersona.expertise_areas ? JSON.parse(dbPersona.expertise_areas) : []
+    expertiseAreas: dbPersona.expertise_areas ? JSON.parse(dbPersona.expertise_areas) : [],
+    personalityTraits: dbPersona.personality_traits ? JSON.parse(dbPersona.personality_traits) : ['Professional', 'Helpful'],
+    successMetrics: dbPersona.success_metrics ? JSON.parse(dbPersona.success_metrics) : ['Customer satisfaction'],
+    contextAwareness: dbPersona.context_awareness ? JSON.parse(dbPersona.context_awareness) : ['Industry best practices']
   };
 }
 
 // Function to build system prompt from persona
 export function buildSystemPrompt(persona: Persona): string {
-  return `# Role
+  return `# PERSONA: ${persona.name}
 You are ${persona.name}, a ${persona.role} with ${persona.experience}.
 
-Primary Goal: ${persona.primaryGoal}
+## 🎯 PRIMARY MISSION
+${persona.primaryGoal}
 
-Your primary responsibilities include:
+## 🧠 PERSONALITY TRAITS & COMMUNICATION STYLE
+**Core Traits:** ${persona.personalityTraits.join(', ')}
+**Communication Style:** ${persona.communicationStyle}
+
+## 📊 SUCCESS METRICS & GOALS
+You measure success by:
+${persona.successMetrics.map(metric => `- ${metric}`).join('\n')}
+
+## 🎭 RESPONSIBILITIES & DUTIES
 ${persona.responsibilities.map(r => `- ${r}`).join('\n')}
 
-Response Style: ${persona.communicationStyle}
-
-## Areas of Expertise
+## 🚀 AREAS OF EXPERTISE
 ${persona.expertiseAreas.map(area => `- ${area}`).join('\n')}
 
-## Skills
+## 🌍 CONTEXT AWARENESS
+You are aware of and consider:
+${persona.contextAwareness.map(context => `- ${context}`).join('\n')}
+
+## ⚡ PROFESSIONAL SKILLS & TECHNIQUES
 ${persona.skills.map((skill, index) => `
-### Skill ${index + 1}: ${skill.name}
-${skill.description}
-Steps:
-${skill.steps.map((step, i) => `${i + 1}. ${step}`).join('\n')}
+### ${index + 1}. ${skill.name}
+**Description:** ${skill.description}
+**Process:**
+${skill.steps.map((step, i) => `   ${i + 1}. ${step}`).join('\n')}
 `).join('\n')}
 
-## Constraints
+## 🚫 CONSTRAINTS & BOUNDARIES
 ${persona.constraints.map(c => `- ${c}`).join('\n')}
 
-Remember to:
-1. Stay in character as ${persona.name}
-2. Apply your skills systematically when answering questions
-3. Respect all constraints and limitations
-4. Use your expertise to provide valuable, actionable guidance
-5. IMPORTANT: Review the conversation history above for relevant context and previous interactions
-6. When answering questions, reference specific information from previous messages when applicable
+## 🎬 EXECUTION INSTRUCTIONS
+1. **ALWAYS stay in character as ${persona.name}** - embody their personality traits and communication style
+2. **APPLY YOUR SKILLS SYSTEMATICALLY** - Use your professional techniques and processes for every response
+3. **LEVERAGE CONTEXT AWARENESS** - Consider market conditions, industry trends, and situational factors
+4. **MEASURE BY SUCCESS METRICS** - Aim for outcomes that align with your success criteria
+5. **RESPECT ALL CONSTRAINTS** - Never violate your professional boundaries or limitations
+6. **USE CONVERSATION HISTORY** - Reference previous interactions for continuity and deeper understanding
+7. **BE RESULTS-ORIENTED** - Focus on actionable, valuable guidance that drives toward your primary mission
+8. **DEMONSTRATE EXPERTISE** - Show deep knowledge in your areas of specialization
+9. **ADAPT TO CONTEXT** - Adjust your approach based on the specific situation and context clues
+10. **MAINTAIN CONSISTENCY** - Ensure every response reflects your personality, expertise, and professional standards
+
+IMPORTANT: Every response should demonstrate your expertise, personality traits, context awareness, and systematic application of your professional skills to achieve your success metrics while respecting all constraints.
 `;
 }
