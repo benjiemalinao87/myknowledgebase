@@ -1,0 +1,44 @@
+---
+globs: src/**/*.ts,src/**/*.tsx,*.ts,*.tsx
+---
+
+# TypeScript & React Development Guidelines
+
+## TypeScript Standards
+
+- **Always use semicolons** at the end of statements
+- **Type Definitions**: Store in [src/types/](mdc:src/types/) directory
+- **Strict Mode**: Maintain strict TypeScript configuration
+- **Interface over Type**: Prefer interfaces for object shapes
+
+## React Component Structure
+
+- **Component Files**: One component per file in [src/components/](mdc:src/components/)
+- **Hooks**: Custom hooks in [src/hooks/](mdc:src/hooks/) directory  
+- **Services**: API and business logic in [src/services/](mdc:src/services/)
+- **Utils**: Helper functions in [src/utils/](mdc:src/utils/)
+
+## State Management
+
+- **Local State**: Use `useState` for component-specific state
+- **API State**: Handle loading, error, and success states explicitly
+- **Form Persistence**: Use [src/hooks/useFormPersistence.ts](mdc:src/hooks/useFormPersistence.ts) for form data
+
+## API Integration
+
+- **Main API Service**: [src/services/api.ts](mdc:src/services/api.ts) handles all backend communication
+- **Error Handling**: Always handle API errors gracefully with user-friendly messages
+- **Loading States**: Show appropriate loading indicators during API calls
+
+## Styling
+
+- **Tailwind CSS**: Primary styling framework - use utility classes
+- **Component Styling**: Keep styles colocated with components
+- **Responsive Design**: Mobile-first approach with responsive utilities
+
+## File Naming Conventions
+
+- **Components**: PascalCase (e.g., `KnowledgeItem.tsx`)
+- **Hooks**: camelCase starting with "use" (e.g., `useFormPersistence.ts`)
+- **Utils**: camelCase (e.g., `validation.ts`)
+- **Types**: camelCase with descriptive names (e.g., `index.ts`, `visualization.ts`)

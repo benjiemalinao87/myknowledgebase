@@ -1,0 +1,77 @@
+---
+description: "API testing patterns, cURL examples, and testing strategies for the knowledge base system"
+---
+
+# API Testing Guidelines
+
+## Testing Strategy
+
+Follow difficulty-based testing approach (1-5 scale) to validate persona responses:
+
+1. **Level 1** - Simple greetings and basic responses
+2. **Level 2** - Basic objections (price, timing)  
+3. **Level 3** - Complex objections (trust, multiple concerns)
+4. **Level 4** - Multi-stakeholder scenarios
+5. **Level 5** - Crisis/emergency situations
+
+## cURL Testing Patterns
+
+### Basic Chat Test
+```bash
+curl --location 'https://knowledge-base-api.benjiemalinao879557.workers.dev/api/chat' \
+--header 'Content-Type: application/json' \
+--data '{
+    "message": "Your prices are too high",
+    "personaId": "chris-voss-negotiator", 
+    "user_id": "+16266635938",
+    "remember_history": true,
+    "useAI": true
+}'
+```
+
+### Persona Management
+```bash
+# Get all personas
+curl --location 'https://knowledge-base-api.benjiemalinao879557.workers.dev/api/personas'
+
+# Update persona
+curl --location 'https://knowledge-base-api.benjiemalinao879557.workers.dev/api/personas/persona-id' \
+--request PUT \
+--header 'Content-Type: application/json' \
+--data '{"name": "Updated Name", "role": "New Role"}'
+```
+
+## Response Validation
+
+### Expected Response Structure
+```json
+{
+  "answer": "AI generated response",
+  "sources": ["knowledge_item_titles"],
+  "persona": {"id": "...", "name": "...", "role": "..."},
+  "context": {"intent": "...", "category": "...", "urgency": "...", "complexity": "..."},
+  "aiGenerated": true,
+  "confidence": 0.95,
+  "processing_time": 123
+}
+```
+
+### Quality Checks
+- ✅ **Goal Alignment**: Response drives toward persona's success metrics
+- ✅ **Personality Consistency**: Matches persona's personality traits
+- ✅ **Skill Usage**: Demonstrates specific techniques from skills array
+- ✅ **Constraint Compliance**: Respects all persona constraints
+- ✅ **Context Awareness**: Considers situational factors
+
+## Database Testing
+
+Use Wrangler for remote D1 database queries:
+```bash
+npx wrangler d1 execute knowledge-base-db --remote --command "SELECT * FROM personas LIMIT 5;"
+```
+
+## Performance Testing
+
+- **Response Time**: Should be under 3 seconds for chat responses
+- **SMS Constraints**: Responses under 160 characters when SMS mode enabled
+- **Memory Usage**: Monitor for memory leaks in long conversations

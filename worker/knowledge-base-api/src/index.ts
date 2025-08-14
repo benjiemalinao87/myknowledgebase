@@ -716,13 +716,15 @@ Be precise and professional.`;
           persona: {
             id: persona.id,
             name: persona.name,
-            role: persona.role
+            role: persona.role,
+            contextAwareness: persona.contextAwareness || []
           },
           context: {
             intent: context.intent,
             category: context.category,
             urgency: context.urgency,
-            complexity: context.complexity
+            complexity: context.complexity,
+            personaContext: persona.contextAwareness || []
           },
           aiGenerated: true,
           confidence: 0.95,
@@ -734,8 +736,19 @@ Be precise and professional.`;
         response = {
           answer: `I'm ${persona.role}. I'm having trouble accessing my AI right now, but I'd be happy to help with your home improvement question: "${message}". Please try again.`,
           sources: knowledgeContext.map((item: any) => item.title),
-          persona: { id: persona.id, name: persona.name, role: persona.role },
-          context: { intent: context.intent, category: context.category, urgency: context.urgency, complexity: context.complexity },
+          persona: { 
+            id: persona.id, 
+            name: persona.name, 
+            role: persona.role,
+            contextAwareness: persona.contextAwareness || []
+          },
+          context: { 
+            intent: context.intent, 
+            category: context.category, 
+            urgency: context.urgency, 
+            complexity: context.complexity,
+            personaContext: persona.contextAwareness || []
+          },
           aiGenerated: false,
           confidence: 0.5,
           processing_time: Date.now() % 1000
@@ -752,8 +765,19 @@ Be precise and professional.`;
       response = {
         answer: answer.substring(0, 160),
         sources: knowledgeContext.map((item: any) => item.title),
-        persona: { id: persona.id, name: persona.name, role: persona.role },
-        context: { intent: context.intent, category: context.category, urgency: context.urgency, complexity: context.complexity },
+        persona: { 
+          id: persona.id, 
+          name: persona.name, 
+          role: persona.role,
+          contextAwareness: persona.contextAwareness || []
+        },
+        context: { 
+          intent: context.intent, 
+          category: context.category, 
+          urgency: context.urgency, 
+          complexity: context.complexity,
+          personaContext: persona.contextAwareness || []
+        },
         aiGenerated: false,
         confidence: 0.3,
         processing_time: Date.now() % 1000

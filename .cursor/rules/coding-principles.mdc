@@ -1,0 +1,33 @@
+---
+alwaysApply: true
+---
+
+# Fundamental Coding Principles
+
+## Core Development Philosophy
+
+- **Reliability First**: If you can't make it reliable, don't build it
+- **Simplicity**: Implement features in the simplest possible way
+- **Clean Code**: Write clean, simple, readable code with clear naming
+- **Small Files**: Keep files focused and under 200 lines when possible
+- **Test-Driven**: Test after every meaningful change
+- **Ego-Free Debugging**: Leave ego aside when fixing errors - you don't know everything
+
+## Error Handling & Debugging
+
+- **Multiple Causes**: Consider multiple possible causes before deciding
+- **Plain English**: Explain problems in simple terms
+- **Minimal Changes**: Change as few lines as code as possible
+- **Always Verify**: Always verify the fix works
+- **Web Search**: For strange errors, ask user to perform web search for latest info
+
+## Documentation & Learning
+
+- **Log Fixes**: Document every successful fix in [lesson_learn.md](mdc:lesson_learn.md)
+- **Update Progress**: Update [progress.md](mdc:progress.md) when features are complete
+- **Instructions File**: Use [instructions.md](mdc:instructions.md) for project planning
+
+## UI/Component Architecture
+
+- **Separation**: Separate each UI part into individual files for better integration
+- **Component Focus**: Each component should have a single, clear responsibility

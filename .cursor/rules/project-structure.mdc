@@ -1,0 +1,33 @@
+---
+alwaysApply: true
+---
+
+# Knowledge Base Project Structure
+
+This is a full-stack AI-powered knowledge base with persona-driven chat capabilities.
+
+## Main Architecture
+
+- **Frontend**: React + TypeScript in [src/](mdc:src/) directory
+- **Backend**: Cloudflare Worker API in [worker/knowledge-base-api/](mdc:worker/knowledge-base-api/)
+- **Database**: Cloudflare D1 (SQLite) for personas, knowledge items, chat history
+- **AI**: OpenAI GPT-4 integration with comprehensive persona system
+
+## Key Entry Points
+
+- **Frontend Main**: [src/main.tsx](mdc:src/main.tsx) → [src/App.tsx](mdc:src/App.tsx)
+- **Backend Main**: [worker/knowledge-base-api/src/index.ts](mdc:worker/knowledge-base-api/src/index.ts)
+- **Persona System**: [worker/knowledge-base-api/src/personas.ts](mdc:worker/knowledge-base-api/src/personas.ts)
+- **API Services**: [src/services/api.ts](mdc:src/services/api.ts)
+
+## Important Configuration Files
+
+- **Worker Config**: [worker/knowledge-base-api/wrangler.jsonc](mdc:worker/knowledge-base-api/wrangler.jsonc)
+- **Frontend Config**: [vite.config.ts](mdc:vite.config.ts), [package.json](mdc:package.json)
+- **Database Migrations**: [worker/knowledge-base-api/migrations/](mdc:worker/knowledge-base-api/migrations/)
+
+## Documentation
+
+- **API Documentation**: [docs/](mdc:docs/) directory contains comprehensive API specs
+- **System Architecture**: [AI_PERSONA_INTEGRATION_SYSTEM.md](mdc:AI_PERSONA_INTEGRATION_SYSTEM.md)
+- **Development Principles**: Follow [README.md](mdc:README.md) guidelines

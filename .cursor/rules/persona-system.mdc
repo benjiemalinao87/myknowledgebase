@@ -1,0 +1,56 @@
+---
+description: "AI Persona system architecture, database schema, and implementation guidelines"
+---
+
+# AI Persona Integration System
+
+## Core Concept
+
+The AI Persona system creates a comprehensive "personality blueprint" for AI responses using complete persona data from the database. Reference [AI_PERSONA_INTEGRATION_SYSTEM.md](mdc:AI_PERSONA_INTEGRATION_SYSTEM.md) for detailed architecture.
+
+## Database Schema
+
+All personas stored in D1 database with these key fields:
+
+```sql
+- id, name, role, experience          -- Basic info
+- primary_goal, communication_style   -- Core behavior 
+- personality_traits                  -- JSON array (NEW)
+- success_metrics                     -- JSON array (NEW) 
+- context_awareness                   -- JSON array (NEW)
+- responsibilities, skills, constraints -- JSON arrays
+- expertise_areas                     -- JSON array
+```
+
+## Key Implementation Files
+
+- **Persona Logic**: [worker/knowledge-base-api/src/personas.ts](mdc:worker/knowledge-base-api/src/personas.ts)
+- **Chat Handler**: [worker/knowledge-base-api/src/index.ts](mdc:worker/knowledge-base-api/src/index.ts) (handleChat function)
+- **Migration Script**: [worker/knowledge-base-api/migrate-personas.js](mdc:worker/knowledge-base-api/migrate-personas.js)
+
+## System Prompt Construction
+
+The `buildSystemPrompt()` function in [personas.ts](mdc:worker/knowledge-base-api/src/personas.ts) builds comprehensive prompts using ALL persona fields:
+
+1. **Primary Mission** - from `primary_goal`
+2. **Personality Traits** - from `personality_traits` array
+3. **Success Metrics** - from `success_metrics` array  
+4. **Context Awareness** - from `context_awareness` array
+5. **Skills & Techniques** - from `skills` array
+6. **Constraints** - from `constraints` array
+
+## Critical Implementation Rules
+
+- **Complete Integration**: Always use ALL persona fields, not just basic role
+- **Goal-Oriented**: Every response must drive toward success metrics
+- **Persona Consistency**: Maintain personality traits across all interactions
+- **Context Awareness**: Consider market conditions and situational factors
+- **Skill-Based**: Use specific professional techniques from skills array
+
+## Example: Chris Voss Negotiator
+
+Primary Goal: "Book appointments using tactical empathy"
+Success Metrics: ["Appointment booking rate", "Customer trust score"]
+Key Constraint: "Always drive conversation toward booking appointment"
+
+Result: Every response uses tactical empathy AND drives toward appointment booking.

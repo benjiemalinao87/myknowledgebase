@@ -1,0 +1,52 @@
+---
+globs: worker/**/*.ts,worker/**/*.js,worker/**/*.json,worker/**/*.jsonc
+---
+
+# Cloudflare Worker Development Guidelines
+
+## Worker Structure
+
+Main entry point: [worker/knowledge-base-api/src/index.ts](mdc:worker/knowledge-base-api/src/index.ts)
+
+## Environment & Bindings
+
+Configured in [wrangler.jsonc](mdc:worker/knowledge-base-api/wrangler.jsonc):
+- **D1 Database**: `env.DB` (knowledge-base-db)
+- **AI Binding**: `env.AI` (Cloudflare Workers AI)
+- **Environment Variables**: `env.OPENAI_API_KEY`
+
+## Database Operations
+
+- **D1 Queries**: Always use prepared statements with `.bind()` for security
+- **Error Handling**: Wrap database operations in try-catch blocks
+- **Migrations**: Store in [migrations/](mdc:worker/knowledge-base-api/migrations/) directory
+
+## API Response Format
+
+Always include CORS headers:
+```typescript
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
+```
+
+## Deployment Commands
+
+- **Development**: `npm run dev` (local testing)
+- **Deploy**: `npm run deploy` (production deployment)
+- **Database Query**: `npx wrangler d1 execute knowledge-base-db --remote --command "SQL"`
+
+## AI Integration Best Practices
+
+- **System Prompts**: Use `buildSystemPrompt()` from [personas.ts](mdc:worker/knowledge-base-api/src/personas.ts)
+- **Token Limits**: Respect SMS mode constraints (160 chars when enabled)
+- **Error Fallbacks**: Always provide fallback responses when OpenAI fails
+- **Conversation History**: Support user_id and session_id for persistent conversations
+
+## Performance Considerations
+
+- **JSON Parsing**: Safely parse JSON fields from database with error handling
+- **Response Caching**: Consider caching for frequently accessed persona data
+- **Timeout Handling**: Set appropriate timeouts for external API calls
