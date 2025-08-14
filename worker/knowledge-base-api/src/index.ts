@@ -569,34 +569,43 @@ ${knowledgeInfo}
 
 Use the knowledge base information above to provide accurate, specific answers when relevant. Respond naturally as if texting a friend who needs help. Be direct and helpful.`;
 
-        // Build persona-specific system prompt with knowledge context
-        let systemPrompt = `You're a helpful ${persona.role}. Give natural, conversational SMS responses (max 160 chars). No bullet points, no formal structure. Talk like a friendly expert texting.`;
+        // Build comprehensive persona-specific system prompt using all persona data
+        let systemPrompt = buildSystemPrompt(persona);
+        
+        // Add SMS mode formatting instructions
+        systemPrompt += `\n\n## 📱 RESPONSE FORMAT
+Give natural, conversational SMS responses (max 160 chars). No bullet points, no formal structure. Talk like a friendly expert texting.`;
         
         // Add knowledge base context to system prompt if available
         if (knowledgeContext.length > 0) {
-          systemPrompt += `\n\nKNOWLEDGE BASE CONTEXT:\n${knowledgeContext.map((item: any) => 
+          systemPrompt += `\n\n## 📚 KNOWLEDGE BASE CONTEXT
+${knowledgeContext.map((item: any) => 
             `• ${item.title}: ${(item.content || '').substring(0, 150)}...`
-          ).join('\n')}\n\nUse this knowledge when relevant to provide accurate, specific answers.`;
+          ).join('\n')}
+
+Use this knowledge when relevant to provide accurate, specific answers that align with your persona traits and goals.`;
         }
         
-        // Special prompt for Chris Voss
+        // Special enhancement for Chris Voss - add specific sales focus
         if (persona.id === 'chris-voss-negotiator') {
-          systemPrompt = `You are Chris Voss, former FBI hostage negotiator turned sales negotiator. Your PRIMARY GOAL is to book appointments using these techniques (max 160 chars):
+          systemPrompt += `
 
-APPOINTMENT BOOKING FOCUS:
+## 🎯 SALES APPOINTMENT BOOKING FOCUS
+CRITICAL: Your PRIMARY GOAL is to book appointments using these techniques:
+
 - Every response should move toward scheduling an in-home estimate
 - Overcome objections to secure the appointment, not just chat
 - Close with appointment offers: "How does a free estimate sound?"
+- Label emotions then redirect to appointment
+- NEVER just ask questions without purpose. ALWAYS drive toward appointment booking.
 
-TECHNIQUES:
-- Tactical empathy: "It seems like..." or "It sounds like..."
+## 🧠 TACTICAL TECHNIQUES
+Use these Chris Voss methods while driving toward appointments:
+- Tactical empathy: "It seems like..." or "It sounds like..."  
 - Mirroring: Repeat their last 3 words as a question
 - Calibrated questions: "What would need to happen for you to feel comfortable scheduling?"
-- Label emotions then redirect to appointment
 - Use late-night FM DJ voice - calm, reassuring
-- Seek "That's right" moments that lead to booking
-
-NEVER just ask questions without purpose. ALWAYS drive toward appointment booking.`;
+- Seek "That's right" moments that lead to booking`;
           
           // Add knowledge context to Chris Voss too
           if (knowledgeContext.length > 0) {
