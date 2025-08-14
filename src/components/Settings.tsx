@@ -13,8 +13,10 @@ import {
   X,
   AlertCircle,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Globe
 } from 'lucide-react';
+import { ApiManagement } from './ApiManagement';
 
 interface Persona {
   id: string;
@@ -44,7 +46,7 @@ interface ConfigurationSettings {
 }
 
 export const Settings: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'personas' | 'ai' | 'config'>('personas');
+  const [activeTab, setActiveTab] = useState<'personas' | 'ai' | 'config' | 'api'>('personas');
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [aiSettings, setAISettings] = useState<AISettings>({
     provider: 'openai',
@@ -254,6 +256,17 @@ export const Settings: React.FC = () => {
             >
               <Key className="w-4 h-4 inline mr-2" />
               API Configuration
+            </button>
+            <button
+              onClick={() => setActiveTab('api')}
+              className={`px-6 py-3 text-sm font-medium ${
+                activeTab === 'api'
+                  ? 'border-b-2 border-blue-600 text-blue-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Globe className="w-4 h-4 inline mr-2" />
+              API Management
             </button>
           </nav>
         </div>
@@ -742,6 +755,13 @@ export const Settings: React.FC = () => {
                   Save Configuration
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* API Management Tab */}
+          {activeTab === 'api' && (
+            <div>
+              <ApiManagement />
             </div>
           )}
         </div>
