@@ -581,16 +581,22 @@ Use the knowledge base information above to provide accurate, specific answers w
         
         // Special prompt for Chris Voss
         if (persona.id === 'chris-voss-negotiator') {
-          systemPrompt = `You are Chris Voss, former FBI hostage negotiator. Use these techniques in your SMS response (max 160 chars):
+          systemPrompt = `You are Chris Voss, former FBI hostage negotiator turned sales negotiator. Your PRIMARY GOAL is to book appointments using these techniques (max 160 chars):
+
+APPOINTMENT BOOKING FOCUS:
+- Every response should move toward scheduling an in-home estimate
+- Overcome objections to secure the appointment, not just chat
+- Close with appointment offers: "How does a free estimate sound?"
+
+TECHNIQUES:
 - Tactical empathy: "It seems like..." or "It sounds like..."
 - Mirroring: Repeat their last 3 words as a question
-- Calibrated questions: Start with "How" or "What", never "Why"
-- Label emotions to show understanding
+- Calibrated questions: "What would need to happen for you to feel comfortable scheduling?"
+- Label emotions then redirect to appointment
 - Use late-night FM DJ voice - calm, reassuring
-- Seek "That's right" moments
-- Never split the difference - avoid bad compromises
+- Seek "That's right" moments that lead to booking
 
-Respond naturally, as if texting. Use ONE technique per response.`;
+NEVER just ask questions without purpose. ALWAYS drive toward appointment booking.`;
           
           // Add knowledge context to Chris Voss too
           if (knowledgeContext.length > 0) {
@@ -930,6 +936,9 @@ async function handleGetPersonas(env: Env): Promise<Response> {
       responsibilities: p.responsibilities ? JSON.parse(p.responsibilities) : [],
       skills: p.skills ? JSON.parse(p.skills) : [],
       constraints: p.constraints ? JSON.parse(p.constraints) : [],
+      personalityTraits: p.personality_traits ? JSON.parse(p.personality_traits) : [],
+      successMetrics: p.success_metrics ? JSON.parse(p.success_metrics) : [],
+      contextAwareness: p.context_awareness ? JSON.parse(p.context_awareness) : [],
       isCustom: true // All personas are now editable
     }));
 
@@ -954,7 +963,8 @@ async function handleUpdatePersona(id: string, request: Request, env: Env): Prom
     const result = await env.DB.prepare(`
       UPDATE personas 
       SET name = ?, role = ?, experience = ?, primary_goal = ?, communication_style = ?,
-          responsibilities = ?, skills = ?, constraints = ?, expertise_areas = ?
+          responsibilities = ?, skills = ?, constraints = ?, expertise_areas = ?,
+          personality_traits = ?, success_metrics = ?, context_awareness = ?
       WHERE id = ?
     `).bind(
       personaData.name,
@@ -966,6 +976,9 @@ async function handleUpdatePersona(id: string, request: Request, env: Env): Prom
       typeof personaData.skills === 'string' ? personaData.skills : JSON.stringify(personaData.skills || []),
       typeof personaData.constraints === 'string' ? personaData.constraints : JSON.stringify(personaData.constraints || []),
       typeof personaData.expertiseAreas === 'string' ? personaData.expertiseAreas : JSON.stringify(personaData.expertiseAreas || []),
+      typeof personaData.personalityTraits === 'string' ? personaData.personalityTraits : JSON.stringify(personaData.personalityTraits || []),
+      typeof personaData.successMetrics === 'string' ? personaData.successMetrics : JSON.stringify(personaData.successMetrics || []),
+      typeof personaData.contextAwareness === 'string' ? personaData.contextAwareness : JSON.stringify(personaData.contextAwareness || []),
       id
     ).run();
     
@@ -1008,11 +1021,21 @@ async function handleAddPersona(request: Request, env: Env): Promise<Response> {
     // Generate ID if not provided
     const id = personaData.id || `custom-${Date.now()}`;
 
+    // Ensure all new columns exist  
+    try {
+      await env.DB.prepare(`ALTER TABLE personas ADD COLUMN personality_traits TEXT DEFAULT NULL`).run();
+      await env.DB.prepare(`ALTER TABLE personas ADD COLUMN success_metrics TEXT DEFAULT NULL`).run();  
+      await env.DB.prepare(`ALTER TABLE personas ADD COLUMN context_awareness TEXT DEFAULT NULL`).run();
+    } catch (e) {
+      // Columns might already exist, continue
+    }
+
     // Save to database
     await env.DB.prepare(`
       INSERT INTO personas (id, name, role, experience, primary_goal, communication_style, 
-                           responsibilities, skills, constraints, expertise_areas)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                           responsibilities, skills, constraints, expertise_areas,
+                           personality_traits, success_metrics, context_awareness)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       id,
       personaData.name,
@@ -1023,7 +1046,10 @@ async function handleAddPersona(request: Request, env: Env): Promise<Response> {
       typeof personaData.responsibilities === 'string' ? personaData.responsibilities : JSON.stringify(personaData.responsibilities || []),
       typeof personaData.skills === 'string' ? personaData.skills : JSON.stringify(personaData.skills || []),
       typeof personaData.constraints === 'string' ? personaData.constraints : JSON.stringify(personaData.constraints || []),
-      typeof personaData.expertiseAreas === 'string' ? personaData.expertiseAreas : (typeof personaData.expertise_areas === 'string' ? personaData.expertise_areas : JSON.stringify(personaData.expertiseAreas || personaData.expertise_areas || []))
+      typeof personaData.expertiseAreas === 'string' ? personaData.expertiseAreas : (typeof personaData.expertise_areas === 'string' ? personaData.expertise_areas : JSON.stringify(personaData.expertiseAreas || personaData.expertise_areas || [])),
+      typeof personaData.personalityTraits === 'string' ? personaData.personalityTraits : JSON.stringify(personaData.personalityTraits || []),
+      typeof personaData.successMetrics === 'string' ? personaData.successMetrics : JSON.stringify(personaData.successMetrics || []),
+      typeof personaData.contextAwareness === 'string' ? personaData.contextAwareness : JSON.stringify(personaData.contextAwareness || [])
     ).run();
 
     return new Response(JSON.stringify({
