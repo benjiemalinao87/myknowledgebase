@@ -458,7 +458,7 @@ async function handleChat(request: Request, env: Env): Promise<Response> {
         // Use specific knowledge items if IDs are provided
         const placeholders = knowledgeIds.map(() => '?').join(',');
         const { results: specificItems } = await env.DB.prepare(`
-          SELECT id, title, content, source_type, metadata, type, url, file_type
+          SELECT id, title, content, type, url, file_type
           FROM knowledge_items 
           WHERE id IN (${placeholders})
           ORDER BY created_at DESC
@@ -469,7 +469,7 @@ async function handleChat(request: Request, env: Env): Promise<Response> {
       } else {
         // Default behavior: retrieve relevant items using keyword matching
         const { results: knowledgeItems } = await env.DB.prepare(`
-          SELECT id, title, content, source_type, metadata, type, url, file_type
+          SELECT id, title, content, type, url, file_type
           FROM knowledge_items 
           ORDER BY created_at DESC 
           LIMIT 10
