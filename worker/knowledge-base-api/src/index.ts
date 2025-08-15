@@ -6,6 +6,8 @@
 import { buildSystemPrompt, createPersonaFromDB } from './personas';
 import { analyzeMessageContext, buildSmartPrompt, generateResponseStructure } from './smartai';
 import { getDateTimeContext, getDateTimeInstructions } from './utils/datetime';
+import { parseWebContent } from './utils/webparser';
+import { scrapeWithFirecrawl } from './utils/firecrawl';
 
 interface Env {
   DB: D1Database;
@@ -13,6 +15,7 @@ interface Env {
   VECTORIZE: VectorizeIndex;
   AI: Ai;
   OPENAI_API_KEY: string;
+  FIRECRAWL_API_KEY: string;
 }
 
 // CORS headers for development
@@ -163,15 +166,48 @@ async function handleIngest(request: Request, env: Env): Promise<Response> {
       });
     }
 
-    // For now, we'll skip embedding generation until AI is configured
-    // Just store in D1
+    let finalContent = data.content || null;
+    let finalTitle = data.title;
+
+    // If it's a web link, fetch and parse the content
+    if (data.type === 'link' && data.url) {
+      console.log(`Fetching content from URL: ${data.url}`);
+      
+      // Try Firecrawl first if API key is available
+      if (env.FIRECRAWL_API_KEY) {
+        const scraped = await scrapeWithFirecrawl(data.url, env.FIRECRAWL_API_KEY);
+        if (scraped.success) {
+          finalContent = scraped.markdown || scraped.content;
+          finalTitle = scraped.title || data.title;
+          console.log(`Successfully scraped with Firecrawl: ${finalTitle}`);
+        } else {
+          console.log(`Firecrawl failed: ${scraped.error}, falling back to simple parser`);
+          // Fallback to simple parser
+          const parsed = await parseWebContent(data.url);
+          if (parsed.content) {
+            finalContent = parsed.content;
+            finalTitle = parsed.title || data.title;
+          }
+        }
+      } else {
+        // Use simple parser if no Firecrawl API key
+        console.log('No Firecrawl API key, using simple parser');
+        const parsed = await parseWebContent(data.url);
+        if (parsed.content) {
+          finalContent = parsed.content;
+          finalTitle = parsed.title || data.title;
+        }
+      }
+    }
+
+    // Store in D1
     await env.DB.prepare(
       'INSERT INTO knowledge_items (id, type, title, content, url, file_type, size) VALUES (?, ?, ?, ?, ?, ?, ?)'
     ).bind(
       id,
       data.type,
-      data.title,
-      data.content || null,
+      finalTitle,
+      finalContent,
       data.url || null,
       data.fileType || null,
       data.size || null
