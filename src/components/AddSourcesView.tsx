@@ -16,7 +16,7 @@ interface AddSourcesViewProps {
 
 export function AddSourcesView({ onSuccess }: AddSourcesViewProps) {
   const [currentStep, setCurrentStep] = useState(1);
-  const steps = ['Upload Files', 'Add Links', 'Add Context', 'Process'];
+  const steps = ['Upload Files', 'Add Context', 'Process'];
   
   const [formData, setFormData] = useState<FormData>({
     files: [],
@@ -44,7 +44,7 @@ export function AddSourcesView({ onSuccess }: AddSourcesViewProps) {
   // Update current step based on form data
   useEffect(() => {
     if (formData.files.length > 0 && formData.context.trim()) {
-      setCurrentStep(4);
+      setCurrentStep(3);
     } else if (formData.files.length > 0) {
       setCurrentStep(2);
     } else {
