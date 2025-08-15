@@ -487,43 +487,23 @@ async function handleChat(request: Request, env: Env): Promise<Response> {
     
     const context = analyzeMessageContext(message, persona);
 
-    // Stage 2: Retrieve relevant knowledge base content
+    // Stage 2: Retrieve specific knowledge items (only if IDs provided)
     let knowledgeContext: any[] = [];
     try {
-      if (knowledgeIds && knowledgeIds.length > 0) {
+      if (knowledgeIds.length > 0) {
         // Use specific knowledge items if IDs are provided
         const placeholders = knowledgeIds.map(() => '?').join(',');
         const { results: specificItems } = await env.DB.prepare(`
           SELECT id, title, content, type, url, file_type
           FROM knowledge_items 
           WHERE id IN (${placeholders})
-          ORDER BY created_at DESC
+          ORDER BY added_at DESC
         `).bind(...knowledgeIds).all();
         
         knowledgeContext = specificItems;
         console.log(`Using specific knowledge items: ${knowledgeIds.join(', ')}`);
       } else {
-        // Default behavior: retrieve relevant items using keyword matching
-        const { results: knowledgeItems } = await env.DB.prepare(`
-          SELECT id, title, content, type, url, file_type
-          FROM knowledge_items 
-          ORDER BY created_at DESC 
-          LIMIT 10
-        `).all();
-        
-        // Filter knowledge items relevant to the message using simple keyword matching
-        knowledgeContext = knowledgeItems.filter((item: any) => {
-          const content = (item.content || '').toLowerCase();
-          const title = (item.title || '').toLowerCase();
-          const messageWords = message.toLowerCase().split(/\s+/);
-          
-          // Check if any words from the message appear in the knowledge content
-          return messageWords.some(word => 
-            word.length > 3 && (content.includes(word) || title.includes(word))
-          );
-        }).slice(0, 3); // Limit to 3 most recent relevant items
-        
-        console.log(`Using automatic keyword matching, found ${knowledgeContext.length} relevant items`);
+        console.log('No specific knowledge items requested');
       }
       
     } catch (error) {
@@ -565,19 +545,8 @@ async function handleChat(request: Request, env: Env): Promise<Response> {
       }
     }
 
-    // Search for relevant knowledge from database
-    const searchTerms = message.split(' ').filter(word => word.length > 3).slice(0, 3);
+    // No automatic knowledge search - only use specific knowledgeIds
     let relevantItems: any[] = [];
-    
-    if (searchTerms.length > 0) {
-      const searchPattern = `%${searchTerms[0]}%`;
-      const { results } = await env.DB.prepare(`
-        SELECT title, content FROM knowledge_items 
-        WHERE title LIKE ? OR content LIKE ?
-        LIMIT 5
-      `).bind(searchPattern, searchPattern).all();
-      relevantItems = results;
-    }
 
     // Build knowledge context string for old approach
     const knowledgeContextString = relevantItems.map((item: any) => 

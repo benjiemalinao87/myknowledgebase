@@ -43,10 +43,8 @@ export function AddSourcesView({ onSuccess }: AddSourcesViewProps) {
 
   // Update current step based on form data
   useEffect(() => {
-    if (formData.files.length > 0 && formData.links.length > 0 && formData.context.trim()) {
+    if (formData.files.length > 0 && formData.context.trim()) {
       setCurrentStep(4);
-    } else if (formData.files.length > 0 && formData.links.length > 0) {
-      setCurrentStep(3);
     } else if (formData.files.length > 0) {
       setCurrentStep(2);
     } else {
@@ -54,8 +52,7 @@ export function AddSourcesView({ onSuccess }: AddSourcesViewProps) {
     }
   }, [formData]);
 
-  const hasValidSources = formData.files.filter(f => f.status !== 'error').length > 0 || 
-                         formData.links.filter(l => l.status !== 'error').length > 0;
+  const hasValidSources = formData.files.filter(f => f.status !== 'error').length > 0;
 
   const isSubmitting = submissionStatus !== 'idle' && submissionStatus !== 'complete' && submissionStatus !== 'error';
 
@@ -164,7 +161,7 @@ export function AddSourcesView({ onSuccess }: AddSourcesViewProps) {
                   
                   <p id="submit-help" className="text-sm text-gray-600 text-center font-medium mt-3">
                     {!hasValidSources 
-                      ? 'Add at least one file or web link to continue'
+                      ? 'Add at least one file to continue'
                       : 'Click to process your sources and add them to the knowledge base'
                     }
                   </p>
