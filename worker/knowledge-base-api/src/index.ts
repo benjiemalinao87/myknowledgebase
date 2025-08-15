@@ -5,6 +5,7 @@
 
 import { buildSystemPrompt, createPersonaFromDB } from './personas';
 import { analyzeMessageContext, buildSmartPrompt, generateResponseStructure } from './smartai';
+import { getDateTimeContext, getDateTimeInstructions } from './utils/datetime';
 
 interface Env {
   DB: D1Database;
@@ -572,6 +573,10 @@ Use the knowledge base information above to provide accurate, specific answers w
         // Build comprehensive persona-specific system prompt using all persona data
         let systemPrompt = buildSystemPrompt(persona);
         
+        // Add universal date/time awareness for ALL personas
+        const dateTimeContext = getDateTimeContext();
+        systemPrompt += '\n\n' + getDateTimeInstructions(dateTimeContext);
+        
         // Add SMS mode formatting instructions
         systemPrompt += `\n\n## 📱 RESPONSE FORMAT
 Give natural, conversational SMS responses (max 160 chars). No bullet points, no formal structure. Talk like a friendly expert texting.`;
@@ -615,39 +620,23 @@ Use these Chris Voss methods while driving toward appointments:
           }
         }
         
-        // Special prompt for Appointment Setter
+        // Special enhancement for Appointment Setter
         if (persona.id === 'appointment-setter') {
-          const currentDate = new Date().toLocaleDateString('en-US', { 
-            weekday: 'long', 
-            year: 'numeric', 
-            month: 'long', 
-            day: 'numeric' 
-          });
-          
-          systemPrompt = `You are a professional Appointment Setter. Today is ${currentDate}. 
+          systemPrompt += `\n\n## 🗓️ APPOINTMENT SCHEDULING SPECIALIST
+You are a professional appointment scheduler. Your PRIMARY focus is scheduling, rescheduling, and managing appointments.
 
-CRITICAL SKILLS:
-- Parse natural language dates ("next Thursday", "tomorrow", "Monday")
-- Convert to specific dates with multiple formats for confirmation
-- Handle various time formats (10am, 2:30pm, 14:00)
-- Always confirm appointments with exact date/time
+CRITICAL APPOINTMENT SKILLS:
+- Understand ALL date/time references naturally (use the date/time awareness above)
+- Always confirm appointments with EXACT date and time
+- Suggest alternatives if requested time is unavailable
+- Handle rescheduling and cancellations professionally
+- Check for business hours compliance
+- Provide clear confirmation with date, time, and any relevant details
 
-RESPONSE FORMAT (max 160 chars):
-1. Parse the date/time from user message
-2. Convert to specific date (e.g., "Thursday, 8/14/2025 (2025-08-14)")
-3. Confirm: "Your appointment is set for [date] at [time]. Can you confirm?"
+APPOINTMENT CONFIRMATION FORMAT:
+"I've scheduled your appointment for [Day], [Date] at [Time]. Does this work for you?"
 
-For "next Thursday 10am" respond like:
-"Your appointment is set for Thursday, 8/14/2025 (2025-08-14) at 10:00 AM. Can you confirm this works?"
-
-Be precise and professional.`;
-          
-          // Add knowledge context to appointment setter too
-          if (knowledgeContext.length > 0) {
-            systemPrompt += `\n\nKNOWLEDGE BASE CONTEXT:\n${knowledgeContext.map((item: any) => 
-              `• ${item.title}: ${(item.content || '').substring(0, 100)}...`
-            ).join('\n')}\n\nUse this knowledge when relevant for appointment context.`;
-          }
+Example: "I've scheduled your appointment for Tuesday, January 21st at 2:30 PM. Does this work for you?"`;
         }
 
         // Build conversation messages with history
@@ -874,42 +863,17 @@ function generateSmartMockResponse(persona: any, message: string, context: any, 
     }
   }
   
-  // Appointment Setter - Date/Time Specialist
+  // Appointment Setter - Let AI handle date/time naturally with context
   else if (persona.id === 'appointment-setter') {
+    // Simple fallback if AI fails - AI should handle all date/time parsing
     if (lowerMessage.includes('appointment') || lowerMessage.includes('book') || lowerMessage.includes('schedule')) {
-      // Parse date/time from message
-      const today = new Date();
-      let appointmentDate = '';
-      let appointmentTime = '';
-      
-      // Parse "next Thursday" 
-      if (lowerMessage.includes('next thursday') || lowerMessage.includes('thursday')) {
-        const nextThursday = new Date(today);
-        const daysUntilThursday = (4 - today.getDay() + 7) % 7 || 7; // Thursday is day 4
-        nextThursday.setDate(today.getDate() + daysUntilThursday);
-        appointmentDate = `Thursday, ${nextThursday.getMonth() + 1}/${nextThursday.getDate()}/${nextThursday.getFullYear()} (${nextThursday.getFullYear()}-${String(nextThursday.getMonth() + 1).padStart(2, '0')}-${String(nextThursday.getDate()).padStart(2, '0')})`;
-      }
-      
-      // Parse time
-      if (lowerMessage.includes('10am') || lowerMessage.includes('10:00') || lowerMessage.includes('10 am')) {
-        appointmentTime = '10:00 AM';
-      } else if (lowerMessage.includes('2pm') || lowerMessage.includes('14:00')) {
-        appointmentTime = '2:00 PM';
-      }
-      
-      if (appointmentDate && appointmentTime) {
-        answer = `Thank you for booking an appointment with us! Your requested appointment is set for ${appointmentDate} at ${appointmentTime}. Can you confirm this works for you?`;
-      } else if (appointmentDate) {
-        answer = `Perfect! I have ${appointmentDate} available. What time would you prefer? Our business hours are 9 AM - 5 PM.`;
-      } else {
-        answer = `I'd be happy to schedule your appointment! What day and time work best for you? Please specify like "next Monday at 2pm".`;
-      }
+      answer = `I'd be happy to help schedule your appointment. What date and time work best for you?`;
     } else if (lowerMessage.includes('reschedule') || lowerMessage.includes('change')) {
-      answer = `No problem! I can help reschedule your appointment. What's your new preferred date and time?`;
+      answer = `I can help reschedule. What's your new preferred date and time?`;
     } else if (lowerMessage.includes('cancel')) {
-      answer = `I understand you need to cancel. Can you provide your appointment date so I can locate and cancel it for you?`;
+      answer = `I'll help you cancel. What's your appointment date?`;
     } else {
-      answer = `Hi! I'm here to help with scheduling appointments. Would you like to book, reschedule, or cancel an appointment?`;
+      answer = `Hi! I help with scheduling. Do you need to book, reschedule, or cancel?`;
     }
   }
   
