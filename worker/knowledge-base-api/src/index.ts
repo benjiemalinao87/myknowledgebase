@@ -951,6 +951,7 @@ async function handleGetPersonas(env: Env): Promise<Response> {
       personalityTraits: p.personality_traits ? JSON.parse(p.personality_traits) : [],
       successMetrics: p.success_metrics ? JSON.parse(p.success_metrics) : [],
       contextAwareness: p.context_awareness ? JSON.parse(p.context_awareness) : [],
+      qualificationInstructions: p.qualification_instructions || '',
       isCustom: true // All personas are now editable
     }));
 
