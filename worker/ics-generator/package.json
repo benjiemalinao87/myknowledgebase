@@ -1,0 +1,25 @@
+{
+  "name": "ics-generator",
+  "version": "1.0.0",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "vitest",
+    "cf-typegen": "wrangler types"
+  },
+  "keywords": ["ics", "calendar", "cloudflare", "worker"],
+  "author": "",
+  "license": "ISC",
+  "description": "ICS calendar file generator microservice",
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241106.0",
+    "typescript": "^5.0.0",
+    "vitest": "^1.0.0",
+    "wrangler": "^3.57.0"
+  },
+  "dependencies": {
+    "date-fns": "^2.30.0",
+    "date-fns-tz": "^2.0.0"
+  }
+}

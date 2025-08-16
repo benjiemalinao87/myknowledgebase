@@ -1,0 +1,10 @@
+name = "ics-generator"
+main = "src/index.ts"
+compatibility_date = "2025-08-12"
+
+[observability]
+enabled = true
+
+# CORS configuration
+[vars]
+CORS_ORIGINS = "*"

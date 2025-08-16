@@ -5,7 +5,7 @@
 
 import { buildSystemPrompt, createPersonaFromDB } from './personas';
 import { analyzeMessageContext, buildSmartPrompt, generateResponseStructure } from './smartai';
-import { getDateTimeContext, getDateTimeInstructions } from './utils/datetime';
+import { getDateTimeContext, getDateTimeInstructions, extractAppointmentFromConversation } from './utils/datetime';
 import { parseWebContent } from './utils/webparser';
 import { scrapeWithFirecrawl } from './utils/firecrawl';
 
@@ -435,6 +435,7 @@ async function handleChat(request: Request, env: Env): Promise<Response> {
     user_id, 
     remember_history = false,
     session_id,
+    timezone = 'America/Los_Angeles', // Default timezone if not provided
     knowledgeIds = [] // Array of specific knowledge item IDs to use
   } = await request.json() as any;
 
@@ -818,6 +819,14 @@ Example: "I've scheduled your appointment for Tuesday, January 21st at 2:30 PM. 
         history_saved: true,
         history_count: conversationHistory.length
       };
+    }
+
+    // Detect appointment confirmation and generate ICS file
+    if (response.answer && response.aiGenerated) {
+      const appointmentDetection = await detectAndGenerateICS(response.answer, message, conversationHistory, user_id, timezone);
+      if (appointmentDetection.icsUrl) {
+        response.appointment = appointmentDetection;
+      }
     }
 
     return new Response(JSON.stringify(response), {
@@ -1539,4 +1548,208 @@ function calculateProcessingEfficiency(metadata: any[]): number {
   if (metadata.length === 0) return 0;
   const avgProcessingTime = metadata.reduce((sum, m) => sum + m.processingTime, 0) / metadata.length;
   return Math.max(0, Math.min(1, (5000 - avgProcessingTime) / 5000)); // Efficiency based on processing time
+}
+
+// Appointment Detection and ICS Generation
+async function detectAndGenerateICS(aiResponse: string, userMessage: string, conversationHistory: any[], userId?: string, timezone: string = 'America/Los_Angeles') {
+  try {
+    // Keywords that indicate appointment confirmation
+    const confirmationKeywords = [
+      'scheduled', 'confirmed', 'appointment is set', 'booked', 'reserved',
+      'I\'ve scheduled', 'your appointment', 'consultation is set',
+      'meeting is scheduled', 'appointment for'
+    ];
+
+    // Check if AI response contains appointment confirmation
+    const isAppointmentConfirmed = confirmationKeywords.some(keyword => 
+      aiResponse.toLowerCase().includes(keyword.toLowerCase())
+    );
+
+    if (!isAppointmentConfirmed) {
+      return { detected: false };
+    }
+
+    console.log('Appointment detected, extracting details...');
+
+    // Extract appointment details from conversation
+    const appointmentDetails = extractAppointmentDetails(aiResponse, userMessage, conversationHistory, timezone);
+    
+    if (!appointmentDetails.startTime || !appointmentDetails.endTime) {
+      console.log('Could not extract valid appointment times');
+      return { detected: true, error: 'Could not extract appointment times' };
+    }
+
+    // Generate ICS file
+    const icsResponse = await generateICSFile(appointmentDetails);
+    
+    if (icsResponse.success) {
+      console.log('ICS file generated successfully:', icsResponse.icsUrl);
+      return {
+        detected: true,
+        confirmed: true,
+        appointmentDetails,
+        icsUrl: icsResponse.icsUrl,
+        icsContent: icsResponse.icsContent,
+        downloadLink: icsResponse.downloadLink
+      };
+    } else {
+      console.log('Failed to generate ICS:', icsResponse.error);
+      return {
+        detected: true,
+        confirmed: true,
+        appointmentDetails,
+        error: icsResponse.error
+      };
+    }
+
+  } catch (error) {
+    console.error('Appointment detection error:', error);
+    return { detected: false, error: error.message };
+  }
+}
+
+function extractAppointmentDetails(aiResponse: string, userMessage: string, conversationHistory: any[], timezone: string = 'America/Los_Angeles') {
+  // Combine all conversation text for better extraction
+  const fullConversation = conversationHistory
+    .map(h => `${h.message} ${h.response}`)
+    .join(' ') + ` ${userMessage} ${aiResponse}`;
+
+  // Extract customer name
+  const nameMatch = fullConversation.match(/(?:my name is|I am|I'm)\s+([A-Za-z]+(?:\s+[A-Za-z]+)?)/i);
+  const customerName = nameMatch ? nameMatch[1] : 'Customer';
+
+  // Extract email (if provided)
+  const emailMatch = fullConversation.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i);
+  const customerEmail = emailMatch ? emailMatch[1] : '';
+
+  // Extract address
+  const addressMatch = fullConversation.match(/(?:address is|located at|live at)\s+([^,]+(?:,[^,]+)*)/i);
+  const address = addressMatch ? addressMatch[1].trim() : '';
+
+  // Timezone is now passed as parameter - no need to detect from conversation
+
+  // Extract appointment type
+  const typeMatch = fullConversation.match(/(kitchen|bathroom|roofing|flooring|consultation|estimate)/i);
+  const appointmentType = typeMatch ? typeMatch[1] : 'consultation';
+
+  // Use natural language datetime parser
+  console.log('Extracting datetime from conversation using natural language parser...');
+  const datetimeResult = extractAppointmentFromConversation(aiResponse, userMessage, conversationHistory, timezone);
+  
+  let startTime = null;
+  let endTime = null;
+  
+  if (datetimeResult.success) {
+    startTime = datetimeResult.startTime;
+    endTime = datetimeResult.endTime;
+    console.log('Natural language parsing successful:', { startTime, endTime, confidence: datetimeResult.confidence });
+  } else {
+    console.log('Natural language parsing failed, using fallback logic...');
+    
+    // Fallback: Look for simple patterns as backup
+    const simpleTimeMatch = fullConversation.match(/(\d{1,2}):?(\d{0,2})\s*(am|pm)/i);
+    if (simpleTimeMatch) {
+      const hour = parseInt(simpleTimeMatch[1]);
+      const minute = simpleTimeMatch[2] ? parseInt(simpleTimeMatch[2]) : 0;
+      const period = simpleTimeMatch[3].toLowerCase();
+      
+      let adjustedHour = hour;
+      if (period === 'pm' && hour !== 12) adjustedHour += 12;
+      if (period === 'am' && hour === 12) adjustedHour = 0;
+      
+      // Default to tomorrow if no specific date found
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const dateStr = tomorrow.toISOString().split('T')[0];
+      
+      startTime = `${dateStr} ${adjustedHour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}:00`;
+      endTime = `${dateStr} ${((adjustedHour + 1) % 24).toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}:00`;
+    }
+  }
+
+  return {
+    customerName,
+    customerEmail,
+    address,
+    timezone,
+    appointmentType,
+    startTime,
+    endTime,
+    title: `${appointmentType.charAt(0).toUpperCase() + appointmentType.slice(1)} Consultation`,
+    description: `Free ${appointmentType} consultation with ${customerName}`
+  };
+}
+
+async function generateICSFile(appointmentDetails: any) {
+  try {
+    const icsPayload = {
+      startTime: appointmentDetails.startTime,
+      endTime: appointmentDetails.endTime,
+      timezone: appointmentDetails.timezone,
+      title: appointmentDetails.title,
+      description: appointmentDetails.description,
+      location: appointmentDetails.address,
+      attendeeEmail: appointmentDetails.customerEmail,
+      attendeeName: appointmentDetails.customerName
+    };
+
+    console.log('Calling ICS generator with:', icsPayload);
+
+    // Call the ICS generator worker
+    const response = await fetch('https://ics-generator.benjiemalinao879557.workers.dev/api/generate-ics', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(icsPayload)
+    });
+
+    const result = await response.json();
+    return result;
+
+  } catch (error) {
+    console.error('ICS generation failed:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to generate calendar file'
+    };
+  }
+}
+
+// Helper functions
+function parseTime(timeStr: string, period: string): string {
+  let hour = parseInt(timeStr.split(':')[0]);
+  const minute = timeStr.includes(':') ? timeStr.split(':')[1] : '00';
+  
+  if (period.toLowerCase() === 'pm' && hour !== 12) hour += 12;
+  if (period.toLowerCase() === 'am' && hour === 12) hour = 0;
+  
+  return `${hour.toString().padStart(2, '0')}:${minute.padStart(2, '0')}`;
+}
+
+function addHour(timeStr: string): string {
+  const [hour, minute] = timeStr.split(':').map(Number);
+  const newHour = (hour + 1) % 24;
+  return `${newHour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+}
+
+function getMonthNumber(monthName: string): number {
+  const months = {
+    january: 1, february: 2, march: 3, april: 4, may: 5, june: 6,
+    july: 7, august: 8, september: 9, october: 10, november: 11, december: 12
+  };
+  return months[monthName.toLowerCase()] || 1;
+}
+
+function getNextMonday(): string {
+  const today = new Date();
+  const dayOfWeek = today.getDay();
+  const daysUntilMonday = (8 - dayOfWeek) % 7 || 7;
+  const nextMonday = new Date(today.getTime() + daysUntilMonday * 24 * 60 * 60 * 1000);
+  
+  const year = nextMonday.getFullYear();
+  const month = (nextMonday.getMonth() + 1).toString().padStart(2, '0');
+  const day = nextMonday.getDate().toString().padStart(2, '0');
+  
+  return `${year}-${month}-${day}`;
 }

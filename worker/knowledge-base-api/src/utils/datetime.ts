@@ -167,3 +167,284 @@ export function isWithinBusinessHours(
     return false;
   }
 }
+
+// ========================================
+// NATURAL LANGUAGE DATETIME PARSING
+// ========================================
+
+export interface ParsedDateTime {
+  date: string; // YYYY-MM-DD format
+  time: string; // HH:MM:SS format
+  fullDateTime: string; // YYYY-MM-DD HH:MM:SS format
+  confidence: number; // 0-1 confidence score
+  timezone?: string;
+}
+
+export interface DateTimeParseResult {
+  success: boolean;
+  startTime?: ParsedDateTime;
+  endTime?: ParsedDateTime;
+  error?: string;
+}
+
+/**
+ * Parse natural language datetime expressions
+ * Examples: "Monday at 2pm", "next Tuesday at 10:30 AM", "tomorrow at 3:30"
+ */
+export function parseNaturalDateTime(text: string, timezone: string = 'America/Los_Angeles'): DateTimeParseResult {
+  try {
+    const normalizedText = text.toLowerCase().trim();
+    
+    // Extract time first
+    const timeResult = extractTime(normalizedText);
+    if (!timeResult.success) {
+      return { success: false, error: 'Could not parse time from text' };
+    }
+
+    // Extract date
+    const dateResult = extractDate(normalizedText);
+    if (!dateResult.success) {
+      return { success: false, error: 'Could not parse date from text' };
+    }
+
+    // Combine date and time
+    const startDateTime = combineDateTime(dateResult.date!, timeResult.time!);
+    const endDateTime = combineDateTime(dateResult.date!, addHour(timeResult.time!));
+
+    return {
+      success: true,
+      startTime: {
+        date: dateResult.date!,
+        time: timeResult.time!,
+        fullDateTime: startDateTime,
+        confidence: Math.min(timeResult.confidence!, dateResult.confidence!),
+        timezone
+      },
+      endTime: {
+        date: dateResult.date!,
+        time: addHour(timeResult.time!),
+        fullDateTime: endDateTime,
+        confidence: Math.min(timeResult.confidence!, dateResult.confidence!),
+        timezone
+      }
+    };
+  } catch (error) {
+    return { success: false, error: `Parse error: ${error}` };
+  }
+}
+
+/**
+ * Extract time from natural language
+ */
+function extractTime(text: string): { success: boolean; time?: string; confidence?: number } {
+  // Common time patterns
+  const timePatterns = [
+    // 12-hour format with AM/PM
+    { regex: /(\d{1,2}):(\d{2})\s*(am|pm)/i, confidence: 0.9 },
+    { regex: /(\d{1,2})\s*(am|pm)/i, confidence: 0.8 },
+    
+    // 24-hour format
+    { regex: /(\d{1,2}):(\d{2})(?!\s*(am|pm))/i, confidence: 0.7 },
+    
+    // Common expressions
+    { regex: /noon|12\s*pm/i, confidence: 0.9, fixed: '12:00' },
+    { regex: /midnight|12\s*am/i, confidence: 0.9, fixed: '00:00' },
+    { regex: /morning/i, confidence: 0.5, fixed: '09:00' },
+    { regex: /afternoon/i, confidence: 0.5, fixed: '14:00' },
+    { regex: /evening/i, confidence: 0.5, fixed: '18:00' },
+  ];
+
+  for (const pattern of timePatterns) {
+    const match = text.match(pattern.regex);
+    if (match) {
+      if (pattern.fixed) {
+        return { success: true, time: pattern.fixed + ':00', confidence: pattern.confidence };
+      }
+
+      let hour = parseInt(match[1]);
+      let minute = match[2] ? parseInt(match[2]) : 0;
+      const period = match[3]?.toLowerCase();
+
+      // Convert 12-hour to 24-hour
+      if (period) {
+        if (period === 'pm' && hour !== 12) hour += 12;
+        if (period === 'am' && hour === 12) hour = 0;
+      }
+
+      const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}:00`;
+      return { success: true, time: timeString, confidence: pattern.confidence };
+    }
+  }
+
+  return { success: false };
+}
+
+/**
+ * Extract date from natural language
+ */
+function extractDate(text: string): { success: boolean; date?: string; confidence?: number } {
+  const today = new Date();
+  const currentYear = today.getFullYear();
+  
+  // Day name patterns
+  const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  const monthNames = ['january', 'february', 'march', 'april', 'may', 'june',
+                     'july', 'august', 'september', 'october', 'november', 'december'];
+
+  // Relative date patterns
+  if (text.includes('today')) {
+    return { success: true, date: formatDate(today), confidence: 0.9 };
+  }
+  
+  if (text.includes('tomorrow')) {
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+    return { success: true, date: formatDate(tomorrow), confidence: 0.9 };
+  }
+
+  // Next [day] patterns
+  const nextDayMatch = text.match(/next\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)/i);
+  if (nextDayMatch) {
+    const targetDay = nextDayMatch[1].toLowerCase();
+    const targetDate = getNextWeekday(today, dayNames.indexOf(targetDay));
+    return { success: true, date: formatDate(targetDate), confidence: 0.8 };
+  }
+
+  // This [day] patterns
+  const thisDayMatch = text.match(/this\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)/i);
+  if (thisDayMatch) {
+    const targetDay = thisDayMatch[1].toLowerCase();
+    const targetDate = getThisWeekday(today, dayNames.indexOf(targetDay));
+    return { success: true, date: formatDate(targetDate), confidence: 0.8 };
+  }
+
+  // Specific day names (assume this week or next week)
+  for (let i = 0; i < dayNames.length; i++) {
+    if (text.includes(dayNames[i])) {
+      const targetDate = getNextOccurrence(today, i);
+      return { success: true, date: formatDate(targetDate), confidence: 0.7 };
+    }
+  }
+
+  // Month day patterns (e.g., "August 18th", "August 18")
+  const monthDayMatch = text.match(/(january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{1,2})(?:st|nd|rd|th)?/i);
+  if (monthDayMatch) {
+    const monthIndex = monthNames.findIndex(m => m.toLowerCase() === monthDayMatch[1].toLowerCase());
+    const day = parseInt(monthDayMatch[2]);
+    
+    if (monthIndex !== -1 && day >= 1 && day <= 31) {
+      // Assume current year, but if the date has passed, use next year
+      let year = currentYear;
+      const testDate = new Date(year, monthIndex, day);
+      if (testDate < today) {
+        year += 1;
+      }
+      
+      const targetDate = new Date(year, monthIndex, day);
+      return { success: true, date: formatDate(targetDate), confidence: 0.8 };
+    }
+  }
+
+  // Numeric date patterns (MM/DD, MM/DD/YYYY)
+  const numericDateMatch = text.match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?/);
+  if (numericDateMatch) {
+    const month = parseInt(numericDateMatch[1]) - 1; // 0-indexed
+    const day = parseInt(numericDateMatch[2]);
+    const year = numericDateMatch[3] ? parseInt(numericDateMatch[3]) : currentYear;
+    
+    if (month >= 0 && month <= 11 && day >= 1 && day <= 31) {
+      const targetDate = new Date(year, month, day);
+      return { success: true, date: formatDate(targetDate), confidence: 0.8 };
+    }
+  }
+
+  return { success: false };
+}
+
+/**
+ * Helper functions for natural language parsing
+ */
+function formatDate(date: Date): string {
+  return date.toISOString().split('T')[0]; // YYYY-MM-DD
+}
+
+function combineDateTime(date: string, time: string): string {
+  return `${date} ${time}`;
+}
+
+function addHour(time: string): string {
+  const [hours, minutes, seconds] = time.split(':').map(Number);
+  const newHours = (hours + 1) % 24;
+  return `${newHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+}
+
+function getNextWeekday(from: Date, targetDay: number): Date {
+  const result = new Date(from);
+  const currentDay = from.getDay();
+  let daysUntilTarget = targetDay - currentDay;
+  
+  if (daysUntilTarget <= 0) {
+    daysUntilTarget += 7; // Next week
+  }
+  
+  result.setDate(from.getDate() + daysUntilTarget);
+  return result;
+}
+
+function getThisWeekday(from: Date, targetDay: number): Date {
+  const result = new Date(from);
+  const currentDay = from.getDay();
+  const daysUntilTarget = targetDay - currentDay;
+  
+  result.setDate(from.getDate() + daysUntilTarget);
+  return result;
+}
+
+function getNextOccurrence(from: Date, targetDay: number): Date {
+  const result = new Date(from);
+  const currentDay = from.getDay();
+  let daysUntilTarget = targetDay - currentDay;
+  
+  if (daysUntilTarget < 0) {
+    daysUntilTarget += 7; // Next week
+  } else if (daysUntilTarget === 0) {
+    // Same day - if it's early in the day, use today, otherwise next week
+    const currentHour = from.getHours();
+    if (currentHour >= 17) { // After 5 PM, assume next week
+      daysUntilTarget = 7;
+    }
+  }
+  
+  result.setDate(from.getDate() + daysUntilTarget);
+  return result;
+}
+
+/**
+ * Enhanced extraction that combines multiple text sources for appointment parsing
+ */
+export function extractAppointmentFromConversation(
+  aiResponse: string, 
+  userMessage: string, 
+  conversationHistory: any[],
+  timezone: string = 'America/Los_Angeles'
+): { success: boolean; startTime?: string; endTime?: string; confidence?: number } {
+  // Combine all conversation text
+  const allText = [
+    ...conversationHistory.map(h => `${h.message} ${h.response}`),
+    userMessage,
+    aiResponse
+  ].join(' ');
+
+  const result = parseNaturalDateTime(allText, timezone);
+  
+  if (result.success && result.startTime && result.endTime) {
+    return {
+      success: true,
+      startTime: result.startTime.fullDateTime,
+      endTime: result.endTime.fullDateTime,
+      confidence: result.startTime.confidence
+    };
+  }
+
+  return { success: false };
+}
