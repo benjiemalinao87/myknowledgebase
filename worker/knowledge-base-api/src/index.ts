@@ -596,6 +596,16 @@ ${knowledgeContext.map((item: any) =>
 Use this knowledge when relevant to provide accurate, specific answers that align with your persona traits and goals.`;
         }
         
+        // Add qualification instructions if available
+        if (persona.qualificationInstructions && persona.qualificationInstructions.trim()) {
+          systemPrompt += `\n\n## 🎯 QUALIFICATION INSTRUCTIONS
+When users express interest in booking appointments or consultations, follow these qualification guidelines:
+
+${persona.qualificationInstructions}
+
+IMPORTANT: Only apply these qualification questions when the user shows clear intent to book an appointment or consultation. For general inquiries, continue providing helpful information while gently encouraging them toward booking a free consultation.`;
+        }
+        
         // Special enhancement for Chris Voss - add specific sales focus
         if (persona.id === 'chris-voss-negotiator') {
           systemPrompt += `
@@ -966,7 +976,7 @@ async function handleUpdatePersona(id: string, request: Request, env: Env): Prom
       UPDATE personas 
       SET name = ?, role = ?, experience = ?, primary_goal = ?, communication_style = ?,
           responsibilities = ?, skills = ?, constraints = ?, expertise_areas = ?,
-          personality_traits = ?, success_metrics = ?, context_awareness = ?
+          personality_traits = ?, success_metrics = ?, context_awareness = ?, qualification_instructions = ?
       WHERE id = ?
     `).bind(
       personaData.name,
@@ -981,6 +991,7 @@ async function handleUpdatePersona(id: string, request: Request, env: Env): Prom
       typeof personaData.personalityTraits === 'string' ? personaData.personalityTraits : JSON.stringify(personaData.personalityTraits || []),
       typeof personaData.successMetrics === 'string' ? personaData.successMetrics : JSON.stringify(personaData.successMetrics || []),
       typeof personaData.contextAwareness === 'string' ? personaData.contextAwareness : JSON.stringify(personaData.contextAwareness || []),
+      personaData.qualificationInstructions || '',
       id
     ).run();
     
@@ -1028,6 +1039,7 @@ async function handleAddPersona(request: Request, env: Env): Promise<Response> {
       await env.DB.prepare(`ALTER TABLE personas ADD COLUMN personality_traits TEXT DEFAULT NULL`).run();
       await env.DB.prepare(`ALTER TABLE personas ADD COLUMN success_metrics TEXT DEFAULT NULL`).run();  
       await env.DB.prepare(`ALTER TABLE personas ADD COLUMN context_awareness TEXT DEFAULT NULL`).run();
+      await env.DB.prepare(`ALTER TABLE personas ADD COLUMN qualification_instructions TEXT DEFAULT NULL`).run();
     } catch (e) {
       // Columns might already exist, continue
     }
@@ -1036,8 +1048,8 @@ async function handleAddPersona(request: Request, env: Env): Promise<Response> {
     await env.DB.prepare(`
       INSERT INTO personas (id, name, role, experience, primary_goal, communication_style, 
                            responsibilities, skills, constraints, expertise_areas,
-                           personality_traits, success_metrics, context_awareness)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                           personality_traits, success_metrics, context_awareness, qualification_instructions)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       id,
       personaData.name,
@@ -1051,7 +1063,8 @@ async function handleAddPersona(request: Request, env: Env): Promise<Response> {
       typeof personaData.expertiseAreas === 'string' ? personaData.expertiseAreas : (typeof personaData.expertise_areas === 'string' ? personaData.expertise_areas : JSON.stringify(personaData.expertiseAreas || personaData.expertise_areas || [])),
       typeof personaData.personalityTraits === 'string' ? personaData.personalityTraits : JSON.stringify(personaData.personalityTraits || []),
       typeof personaData.successMetrics === 'string' ? personaData.successMetrics : JSON.stringify(personaData.successMetrics || []),
-      typeof personaData.contextAwareness === 'string' ? personaData.contextAwareness : JSON.stringify(personaData.contextAwareness || [])
+      typeof personaData.contextAwareness === 'string' ? personaData.contextAwareness : JSON.stringify(personaData.contextAwareness || []),
+      personaData.qualificationInstructions || ''
     ).run();
 
     return new Response(JSON.stringify({

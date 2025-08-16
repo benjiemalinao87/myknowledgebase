@@ -23,6 +23,7 @@ export interface Persona {
   personalityTraits: string[];
   successMetrics: string[];
   contextAwareness: string[];
+  qualificationInstructions?: string;
 }
 
 // Function to create a persona from DB data
@@ -40,7 +41,8 @@ export function createPersonaFromDB(dbPersona: any): Persona {
     expertiseAreas: dbPersona.expertise_areas ? JSON.parse(dbPersona.expertise_areas) : [],
     personalityTraits: dbPersona.personality_traits ? JSON.parse(dbPersona.personality_traits) : ['Professional', 'Helpful'],
     successMetrics: dbPersona.success_metrics ? JSON.parse(dbPersona.success_metrics) : ['Customer satisfaction'],
-    contextAwareness: dbPersona.context_awareness ? JSON.parse(dbPersona.context_awareness) : ['Industry best practices']
+    contextAwareness: dbPersona.context_awareness ? JSON.parse(dbPersona.context_awareness) : ['Industry best practices'],
+    qualificationInstructions: dbPersona.qualification_instructions || ''
   };
 }
 

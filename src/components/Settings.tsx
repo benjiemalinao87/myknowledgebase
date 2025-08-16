@@ -14,9 +14,18 @@ import {
   AlertCircle,
   ChevronDown,
   ChevronUp,
-  Globe
+  Globe,
+  Copy,
+  PlusCircle,
+  MinusCircle
 } from 'lucide-react';
 import { ApiManagement } from './ApiManagement';
+
+interface Skill {
+  name: string;
+  description: string;
+  steps: string[];
+}
 
 interface Persona {
   id: string;
@@ -25,6 +34,14 @@ interface Persona {
   experience: string;
   primaryGoal: string;
   communicationStyle: string;
+  responsibilities?: string[];
+  constraints?: string[];
+  expertiseAreas?: string[];
+  personalityTraits?: string[];
+  skills?: Skill[] | string;
+  successMetrics?: string[];
+  contextAwareness?: string[];
+  qualificationInstructions?: string;
   isEditing?: boolean;
 }
 
@@ -44,6 +61,131 @@ interface ConfigurationSettings {
   enableAnalytics: boolean;
   enableDebugMode: boolean;
 }
+
+// Skill Editor Component
+const SkillsEditor: React.FC<{
+  skills: Skill[];
+  onChange: (skills: Skill[]) => void;
+}> = ({ skills, onChange }) => {
+  const addSkill = () => {
+    onChange([...skills, { name: '', description: '', steps: [''] }]);
+  };
+
+  const removeSkill = (index: number) => {
+    onChange(skills.filter((_, i) => i !== index));
+  };
+
+  const updateSkill = (index: number, field: keyof Skill, value: string | string[]) => {
+    const updated = [...skills];
+    updated[index] = { ...updated[index], [field]: value };
+    onChange(updated);
+  };
+
+  const addStep = (skillIndex: number) => {
+    const updated = [...skills];
+    updated[skillIndex].steps = [...updated[skillIndex].steps, ''];
+    onChange(updated);
+  };
+
+  const removeStep = (skillIndex: number, stepIndex: number) => {
+    const updated = [...skills];
+    updated[skillIndex].steps = updated[skillIndex].steps.filter((_, i) => i !== stepIndex);
+    onChange(updated);
+  };
+
+  const updateStep = (skillIndex: number, stepIndex: number, value: string) => {
+    const updated = [...skills];
+    updated[skillIndex].steps[stepIndex] = value;
+    onChange(updated);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between mb-2">
+        <label className="text-sm font-medium text-gray-700">Professional Skills</label>
+        <button
+          type="button"
+          onClick={addSkill}
+          className="text-blue-600 hover:text-blue-700 flex items-center text-sm"
+        >
+          <PlusCircle className="w-4 h-4 mr-1" />
+          Add Skill
+        </button>
+      </div>
+      
+      {skills.length === 0 ? (
+        <div className="text-gray-500 text-sm italic p-4 border border-dashed rounded-lg text-center">
+          No skills added yet. Click "Add Skill" to get started.
+        </div>
+      ) : (
+        skills.map((skill, skillIndex) => (
+          <div key={skillIndex} className="border rounded-lg p-4 bg-gray-50">
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex-1 space-y-3">
+                <input
+                  type="text"
+                  placeholder="Skill name (e.g., Objection Handling)"
+                  value={skill.name}
+                  onChange={(e) => updateSkill(skillIndex, 'name', e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg text-sm"
+                />
+                <textarea
+                  placeholder="Skill description (e.g., Effectively handle customer objections and concerns)"
+                  value={skill.description}
+                  onChange={(e) => updateSkill(skillIndex, 'description', e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg text-sm"
+                  rows={2}
+                />
+                
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-gray-600">Steps:</label>
+                    <button
+                      type="button"
+                      onClick={() => addStep(skillIndex)}
+                      className="text-blue-600 hover:text-blue-700 text-xs flex items-center"
+                    >
+                      <Plus className="w-3 h-3 mr-1" />
+                      Add Step
+                    </button>
+                  </div>
+                  {skill.steps.map((step, stepIndex) => (
+                    <div key={stepIndex} className="flex items-center space-x-2">
+                      <span className="text-xs text-gray-500 w-4">{stepIndex + 1}.</span>
+                      <input
+                        type="text"
+                        placeholder={`Step ${stepIndex + 1} (e.g., Listen actively to the concern)`}
+                        value={step}
+                        onChange={(e) => updateStep(skillIndex, stepIndex, e.target.value)}
+                        className="flex-1 px-3 py-1 border rounded text-sm"
+                      />
+                      {skill.steps.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeStep(skillIndex, stepIndex)}
+                          className="text-red-500 hover:text-red-600"
+                        >
+                          <MinusCircle className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => removeSkill(skillIndex)}
+                className="ml-3 text-red-500 hover:text-red-600"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
+};
 
 export const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'personas' | 'ai' | 'config' | 'api'>('personas');
@@ -68,6 +210,8 @@ export const Settings: React.FC = () => {
   const [expandedPersona, setExpandedPersona] = useState<string | null>(null);
   const [newPersona, setNewPersona] = useState<Partial<Persona>>({});
   const [showNewPersonaForm, setShowNewPersonaForm] = useState(false);
+  const [newSkills, setNewSkills] = useState<Skill[]>([]);
+  const [editingSkills, setEditingSkills] = useState<{ [key: string]: Skill[] }>({});
 
   // Load personas from API
   useEffect(() => {
@@ -90,11 +234,17 @@ export const Settings: React.FC = () => {
   const handleSavePersona = async (persona: Persona) => {
     setSaveStatus('saving');
     try {
+      // Convert skills array to JSON string if needed
+      const personaToSave = {
+        ...persona,
+        skills: editingSkills[persona.id] ? JSON.stringify(editingSkills[persona.id]) : persona.skills
+      };
+      
       // API call to update persona
       const response = await fetch(`${config.apiEndpoint}/personas/${persona.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(persona)
+        body: JSON.stringify(personaToSave)
       });
       
       const result = await response.json();
@@ -102,6 +252,12 @@ export const Settings: React.FC = () => {
       setPersonas(prev => prev.map(p => 
         p.id === persona.id ? { ...persona, isEditing: false } : p
       ));
+      // Clear editing skills for this persona
+      setEditingSkills(prev => {
+        const updated = { ...prev };
+        delete updated[persona.id];
+        return updated;
+      });
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus('idle'), 2000);
     } catch (error) {
@@ -120,7 +276,8 @@ export const Settings: React.FC = () => {
         id: `custom-${Date.now()}`,
         experience: newPersona.experience || '',
         primaryGoal: newPersona.primaryGoal || '',
-        communicationStyle: newPersona.communicationStyle || ''
+        communicationStyle: newPersona.communicationStyle || '',
+        skills: JSON.stringify(newSkills) // Convert skills array to JSON string
       };
 
       // API call to add persona
@@ -132,6 +289,7 @@ export const Settings: React.FC = () => {
 
       setPersonas(prev => [...prev, personaToAdd as Persona]);
       setNewPersona({});
+      setNewSkills([]); // Reset skills
       setShowNewPersonaForm(false);
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus('idle'), 2000);
@@ -292,6 +450,12 @@ export const Settings: React.FC = () => {
                 <div className="border rounded-lg p-4 bg-gray-50">
                   <h3 className="font-semibold mb-3">Create New Persona</h3>
                   <div className="grid grid-cols-2 gap-4">
+                    <div className="col-span-2">
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Persona ID (auto-generated)</label>
+                      <div className="px-3 py-2 bg-gray-100 border border-gray-200 rounded-lg text-gray-600 font-mono text-sm">
+                        custom-{Date.now()}
+                      </div>
+                    </div>
                     <input
                       type="text"
                       placeholder="Name"
@@ -355,13 +519,12 @@ export const Settings: React.FC = () => {
                       className="px-3 py-2 border rounded-lg col-span-2"
                       rows={3}
                     />
-                    <textarea
-                      placeholder="Skills (JSON format) e.g., [{'name':'Objection Handling','description':'Handle customer concerns','steps':['Listen actively','Acknowledge concern','Provide solution']}]"
-                      value={newPersona.skills || ''}
-                      onChange={(e) => setNewPersona(prev => ({ ...prev, skills: e.target.value }))}
-                      className="px-3 py-2 border rounded-lg col-span-2 font-mono text-sm"
-                      rows={4}
-                    />
+                    <div className="col-span-2">
+                      <SkillsEditor 
+                        skills={newSkills}
+                        onChange={setNewSkills}
+                      />
+                    </div>
                     <textarea
                       placeholder="Success Metrics (one per line) e.g., Conversion rate >40%, Customer satisfaction >4.5/5"
                       value={Array.isArray(newPersona.successMetrics) ? newPersona.successMetrics.join('\n') : newPersona.successMetrics || ''}
@@ -376,6 +539,19 @@ export const Settings: React.FC = () => {
                       className="px-3 py-2 border rounded-lg col-span-2"
                       rows={3}
                     />
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Qualification Instructions</label>
+                      <textarea
+                        placeholder="Enter natural instructions for qualifying users before booking appointments...\n\nExample:\n## QUALIFYING CRITERIA:\n- Homeownership Verification:\nAre you the owner of the permanent residence?\nIs this a vacation home or a primary residence?\n(Reject if they are renters or investment property owners.)\n\n- If Address is empty, ask for the address of the user, otherwise, skip it.\n\n- Property Type Validation:\nWhat type of home do you own? (Single-Family Home, Mobile Home, Condo, Townhome)\n\n- Materials Procurement:\nHave you purchased any materials for this project? (If yes, inform them that all materials will be supplied by us.)\n\n- Payment Method Inquiry:\nWill you be paying for this project on your own, or are you interested in financing options?"
+                        value={newPersona.qualificationInstructions || ''}
+                        onChange={(e) => setNewPersona(prev => ({ ...prev, qualificationInstructions: e.target.value }))}
+                        className="w-full px-3 py-2 border rounded-lg font-mono text-sm"
+                        rows={8}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Enter natural language instructions for qualifying users. The AI will follow these instructions when users express interest in booking appointments.
+                      </p>
+                    </div>
                   </div>
                   <div className="flex justify-end mt-4 space-x-2">
                     <button
@@ -409,6 +585,12 @@ export const Settings: React.FC = () => {
                           <div className="flex-1">
                             {persona.isEditing ? (
                               <div className="space-y-3">
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-500 mb-1">Persona ID</label>
+                                  <div className="px-3 py-1 bg-gray-100 border border-gray-200 rounded font-mono text-sm text-gray-600">
+                                    {persona.id}
+                                  </div>
+                                </div>
                                 <input
                                   type="text"
                                   value={persona.name}
@@ -416,6 +598,7 @@ export const Settings: React.FC = () => {
                                     p.id === persona.id ? { ...p, name: e.target.value } : p
                                   ))}
                                   className="px-3 py-1 border rounded w-full"
+                                  placeholder="Name"
                                 />
                                 <input
                                   type="text"
@@ -479,6 +662,54 @@ export const Settings: React.FC = () => {
                                   className="px-3 py-1 border rounded w-full"
                                   rows={3}
                                 />
+                                <textarea
+                                  placeholder="Personality Traits (one per line)"
+                                  value={Array.isArray(persona.personalityTraits) ? persona.personalityTraits.join('\n') : persona.personalityTraits || ''}
+                                  onChange={(e) => setPersonas(prev => prev.map(p => 
+                                    p.id === persona.id ? { ...p, personalityTraits: e.target.value.split('\n').filter(t => t.trim()) } : p
+                                  ))}
+                                  className="px-3 py-1 border rounded w-full"
+                                  rows={3}
+                                />
+                                <textarea
+                                  placeholder="Success Metrics (one per line)"
+                                  value={Array.isArray(persona.successMetrics) ? persona.successMetrics.join('\n') : persona.successMetrics || ''}
+                                  onChange={(e) => setPersonas(prev => prev.map(p => 
+                                    p.id === persona.id ? { ...p, successMetrics: e.target.value.split('\n').filter(m => m.trim()) } : p
+                                  ))}
+                                  className="px-3 py-1 border rounded w-full"
+                                  rows={3}
+                                />
+                                <textarea
+                                  placeholder="Context Awareness (one per line)"
+                                  value={Array.isArray(persona.contextAwareness) ? persona.contextAwareness.join('\n') : persona.contextAwareness || ''}
+                                  onChange={(e) => setPersonas(prev => prev.map(p => 
+                                    p.id === persona.id ? { ...p, contextAwareness: e.target.value.split('\n').filter(c => c.trim()) } : p
+                                  ))}
+                                  className="px-3 py-1 border rounded w-full"
+                                  rows={3}
+                                />
+                                <div className="border-t pt-3">
+                                  <SkillsEditor
+                                    skills={editingSkills[persona.id] || []}
+                                    onChange={(skills) => setEditingSkills(prev => ({ ...prev, [persona.id]: skills }))}
+                                  />
+                                </div>
+                                <div className="border-t pt-3">
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">Qualification Instructions</label>
+                                  <textarea
+                                    placeholder="Enter natural instructions for qualifying users before booking appointments..."
+                                    value={persona.qualificationInstructions || ''}
+                                    onChange={(e) => setPersonas(prev => prev.map(p => 
+                                      p.id === persona.id ? { ...p, qualificationInstructions: e.target.value } : p
+                                    ))}
+                                    className="w-full px-3 py-1 border rounded font-mono text-sm"
+                                    rows={6}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    Enter natural language instructions for qualifying users during appointment booking.
+                                  </p>
+                                </div>
                               </div>
                             ) : (
                               <div
@@ -493,8 +724,24 @@ export const Settings: React.FC = () => {
                                   }
                                 </div>
                                 <p className="text-gray-600">{persona.role}</p>
+                                <div className="flex items-center mt-1">
+                                  <span className="text-xs text-gray-400 font-mono bg-gray-100 px-2 py-0.5 rounded">
+                                    ID: {persona.id}
+                                  </span>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigator.clipboard.writeText(persona.id);
+                                    }}
+                                    className="ml-2 text-gray-400 hover:text-gray-600"
+                                    title="Copy ID"
+                                  >
+                                    <Copy className="w-3 h-3" />
+                                  </button>
+                                </div>
                                 {expandedPersona === persona.id && (
                                   <div className="mt-3 space-y-2 text-sm text-gray-700">
+                                    <p><strong>ID:</strong> <span className="font-mono bg-gray-100 px-2 py-0.5 rounded">{persona.id}</span></p>
                                     <p><strong>Experience:</strong> {persona.experience}</p>
                                     <p><strong>Goal:</strong> {persona.primaryGoal}</p>
                                     <p><strong>Style:</strong> {persona.communicationStyle}</p>
@@ -530,6 +777,75 @@ export const Settings: React.FC = () => {
                                         </div>
                                       </div>
                                     )}
+                                    {persona.personalityTraits && persona.personalityTraits.length > 0 && (
+                                      <div>
+                                        <strong>Personality Traits:</strong>
+                                        <ul className="ml-4 mt-1 list-disc">
+                                          {persona.personalityTraits.map((trait, idx) => (
+                                            <li key={idx}>{trait}</li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    )}
+                                    {persona.successMetrics && persona.successMetrics.length > 0 && (
+                                      <div>
+                                        <strong>Success Metrics:</strong>
+                                        <ul className="ml-4 mt-1 list-disc">
+                                          {persona.successMetrics.map((metric, idx) => (
+                                            <li key={idx}>{metric}</li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    )}
+                                    {persona.contextAwareness && persona.contextAwareness.length > 0 && (
+                                      <div>
+                                        <strong>Context Awareness:</strong>
+                                        <ul className="ml-4 mt-1 list-disc">
+                                          {persona.contextAwareness.map((context, idx) => (
+                                            <li key={idx}>{context}</li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    )}
+                                    {(() => {
+                                      try {
+                                        const skills = typeof persona.skills === 'string' 
+                                          ? JSON.parse(persona.skills) 
+                                          : persona.skills || [];
+                                        return skills.length > 0 ? (
+                                          <div>
+                                            <strong>Professional Skills:</strong>
+                                            <div className="mt-2 space-y-2">
+                                              {skills.map((skill: Skill, idx: number) => (
+                                                <div key={idx} className="ml-4 p-2 bg-gray-50 rounded">
+                                                  <div className="font-medium text-sm">{skill.name}</div>
+                                                  <div className="text-xs text-gray-600 mt-1">{skill.description}</div>
+                                                  {skill.steps && skill.steps.length > 0 && (
+                                                    <ol className="mt-1 text-xs text-gray-500 list-decimal list-inside">
+                                                      {skill.steps.map((step, stepIdx) => (
+                                                        <li key={stepIdx}>{step}</li>
+                                                      ))}
+                                                    </ol>
+                                                  )}
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        ) : null;
+                                      } catch (e) {
+                                        return null;
+                                      }
+                                    })()}
+                                    {persona.qualificationInstructions && (
+                                      <div>
+                                        <strong>Qualification Instructions:</strong>
+                                        <div className="mt-1 p-2 bg-gray-50 rounded">
+                                          <pre className="text-xs text-gray-600 whitespace-pre-wrap font-mono">
+                                            {persona.qualificationInstructions}
+                                          </pre>
+                                        </div>
+                                      </div>
+                                    )}
                                   </div>
                                 )}
                               </div>
@@ -557,9 +873,20 @@ export const Settings: React.FC = () => {
                             ) : (
                               <>
                                 <button
-                                  onClick={() => setPersonas(prev => prev.map(p => 
-                                    p.id === persona.id ? { ...p, isEditing: true } : p
-                                  ))}
+                                  onClick={() => {
+                                    setPersonas(prev => prev.map(p => 
+                                      p.id === persona.id ? { ...p, isEditing: true } : p
+                                    ));
+                                    // Parse existing skills if they're a JSON string
+                                    try {
+                                      const skills = typeof persona.skills === 'string' 
+                                        ? JSON.parse(persona.skills) 
+                                        : persona.skills || [];
+                                      setEditingSkills(prev => ({ ...prev, [persona.id]: skills }));
+                                    } catch (e) {
+                                      setEditingSkills(prev => ({ ...prev, [persona.id]: [] }));
+                                    }
+                                  }}
                                   className="p-2 text-blue-600 hover:bg-blue-50 rounded"
                                   title="Edit persona"
                                 >
