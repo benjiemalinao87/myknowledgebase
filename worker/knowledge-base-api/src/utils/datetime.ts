@@ -428,21 +428,45 @@ export function extractAppointmentFromConversation(
   conversationHistory: any[],
   timezone: string = 'America/Los_Angeles'
 ): { success: boolean; startTime?: string; endTime?: string; confidence?: number } {
-  // Combine all conversation text
+  // CRITICAL FIX: Parse AI response FIRST (prioritize AI's structured response)
+  const aiResult = parseNaturalDateTime(aiResponse, timezone);
+  
+  if (aiResult.success && aiResult.startTime && aiResult.endTime) {
+    return {
+      success: true,
+      startTime: aiResult.startTime.fullDateTime,
+      endTime: aiResult.endTime.fullDateTime,
+      confidence: aiResult.startTime.confidence + 0.1 // Higher confidence for AI response
+    };
+  }
+
+  // Fallback to user message if AI response doesn't contain parseable datetime
+  const userResult = parseNaturalDateTime(userMessage, timezone);
+  
+  if (userResult.success && userResult.startTime && userResult.endTime) {
+    return {
+      success: true,
+      startTime: userResult.startTime.fullDateTime,
+      endTime: userResult.endTime.fullDateTime,
+      confidence: userResult.startTime.confidence
+    };
+  }
+
+  // Final fallback: combine all conversation text (old behavior)
   const allText = [
     ...conversationHistory.map(h => `${h.message} ${h.response}`),
     userMessage,
     aiResponse
   ].join(' ');
 
-  const result = parseNaturalDateTime(allText, timezone);
+  const combinedResult = parseNaturalDateTime(allText, timezone);
   
-  if (result.success && result.startTime && result.endTime) {
+  if (combinedResult.success && combinedResult.startTime && combinedResult.endTime) {
     return {
       success: true,
-      startTime: result.startTime.fullDateTime,
-      endTime: result.endTime.fullDateTime,
-      confidence: result.startTime.confidence
+      startTime: combinedResult.startTime.fullDateTime,
+      endTime: combinedResult.endTime.fullDateTime,
+      confidence: combinedResult.startTime.confidence - 0.1 // Lower confidence for combined text
     };
   }
 

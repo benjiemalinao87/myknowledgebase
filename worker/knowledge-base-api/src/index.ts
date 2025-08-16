@@ -641,18 +641,26 @@ Use these Chris Voss methods while driving toward appointments:
           systemPrompt += `\n\n## 🗓️ APPOINTMENT SCHEDULING SPECIALIST
 You are a professional appointment scheduler. Your PRIMARY focus is scheduling, rescheduling, and managing appointments.
 
-CRITICAL APPOINTMENT SKILLS:
-- Understand ALL date/time references naturally (use the date/time awareness above)
+CRITICAL APPOINTMENT RULES:
+- NEVER schedule without BOTH specific date AND specific time
+- If user says "schedule me" without date: Ask "What date works best for you?"
+- If user says "schedule me Monday" without time: Ask "What time on Monday works for you?"
+- If user says "schedule me at 2pm" without date: Ask "Which day would you like your 2pm appointment?"
 - Always confirm appointments with EXACT date and time
 - Suggest alternatives if requested time is unavailable
 - Handle rescheduling and cancellations professionally
 - Check for business hours compliance
-- Provide clear confirmation with date, time, and any relevant details
 
-APPOINTMENT CONFIRMATION FORMAT:
+APPOINTMENT CONFIRMATION FORMAT (only when BOTH date and time are provided):
 "I've scheduled your appointment for [Day], [Date] at [Time]. Does this work for you?"
 
-Example: "I've scheduled your appointment for Tuesday, January 21st at 2:30 PM. Does this work for you?"`;
+CLARIFICATION FORMAT (when missing date or time):
+"I'd be happy to schedule that for you. [Missing info question]"
+
+Examples:
+- Complete: "I've scheduled your appointment for Tuesday, January 21st at 2:30 PM. Does this work for you?"
+- Missing time: "I'd be happy to schedule that for Tuesday. What time works best for you?"
+- Missing date: "I'd be happy to schedule that for 2:30 PM. Which day works best for you?"`;
         }
 
         // Build conversation messages with history
@@ -1553,21 +1561,62 @@ function calculateProcessingEfficiency(metadata: any[]): number {
 // Appointment Detection and ICS Generation
 async function detectAndGenerateICS(aiResponse: string, userMessage: string, conversationHistory: any[], userId?: string, timezone: string = 'America/Los_Angeles') {
   try {
-    // Keywords that indicate appointment confirmation
-    const confirmationKeywords = [
+    // Universal appointment detection - check BOTH user message and AI response
+    const allConversationText = `${userMessage} ${aiResponse}`.toLowerCase();
+    
+    // Broader keywords for appointment intent (not just confirmation)
+    const appointmentKeywords = [
+      // Scheduling requests from users
+      'schedule', 'book', 'appointment', 'meeting', 'consultation',
+      'when can', 'available', 'time for', 'meet', 'visit',
+      
+      // Time expressions that indicate scheduling
+      'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
+      'tomorrow', 'next week', 'this week', 'am', 'pm',
+      
+      // Confirmation responses from AI
       'scheduled', 'confirmed', 'appointment is set', 'booked', 'reserved',
       'I\'ve scheduled', 'your appointment', 'consultation is set',
-      'meeting is scheduled', 'appointment for'
+      'meeting is scheduled', 'appointment for', 'let\'s confirm'
     ];
 
-    // Check if AI response contains appointment confirmation
-    const isAppointmentConfirmed = confirmationKeywords.some(keyword => 
-      aiResponse.toLowerCase().includes(keyword.toLowerCase())
+    // Check if conversation contains appointment-related keywords
+    const hasAppointmentKeywords = appointmentKeywords.some(keyword => 
+      allConversationText.includes(keyword)
     );
 
-    if (!isAppointmentConfirmed) {
+    // Try to parse datetime from conversation
+    const datetimeTest = extractAppointmentFromConversation(aiResponse, userMessage, conversationHistory, timezone);
+    
+    // Check for EXPLICIT scheduling intent in user message
+    const explicitSchedulingWords = ['schedule', 'book', 'reserve', 'confirm', 'set up'];
+    const userSchedulingIntent = explicitSchedulingWords.some(word => 
+      userMessage.toLowerCase().includes(word)
+    );
+    
+    // Check for confirmation keywords in AI response (indicates scheduling happened)
+    const aiConfirmationKeywords = [
+      'scheduled', 'confirmed', 'appointment is set', 'booked', 'reserved',
+      'I\'ve scheduled', 'your appointment', 'consultation is set'
+    ];
+    const aiConfirmedAppointment = aiConfirmationKeywords.some(keyword => 
+      aiResponse.toLowerCase().includes(keyword.toLowerCase())
+    );
+    
+    // Detect appointment ONLY if:
+    // 1. User explicitly requested scheduling AND can parse time, OR
+    // 2. AI explicitly confirmed an appointment
+    const isAppointmentDetected = (userSchedulingIntent && datetimeTest.success) || aiConfirmedAppointment;
+
+    if (!isAppointmentDetected) {
       return { detected: false };
     }
+    
+    console.log('Appointment detected via:', {
+      userSchedulingIntent: userSchedulingIntent,
+      datetimeParseSuccess: datetimeTest.success,
+      aiConfirmedAppointment: aiConfirmedAppointment
+    });
 
     console.log('Appointment detected, extracting details...');
 
@@ -1575,8 +1624,16 @@ async function detectAndGenerateICS(aiResponse: string, userMessage: string, con
     const appointmentDetails = extractAppointmentDetails(aiResponse, userMessage, conversationHistory, timezone);
     
     if (!appointmentDetails.startTime || !appointmentDetails.endTime) {
-      console.log('Could not extract valid appointment times');
-      return { detected: true, error: 'Could not extract appointment times' };
+      console.log('Incomplete appointment details - no ICS file will be generated');
+      console.log('AI should ask for clarification instead of generating appointment');
+      
+      // Return early - don't generate ICS for incomplete appointments
+      return {
+        detected: true,
+        confirmed: false,
+        needsClarification: true,
+        message: 'Appointment intent detected but date/time incomplete - AI should ask for specifics'
+      };
     }
 
     // Generate ICS file
@@ -1644,26 +1701,20 @@ function extractAppointmentDetails(aiResponse: string, userMessage: string, conv
     endTime = datetimeResult.endTime;
     console.log('Natural language parsing successful:', { startTime, endTime, confidence: datetimeResult.confidence });
   } else {
-    console.log('Natural language parsing failed, using fallback logic...');
+    console.log('Natural language parsing failed, using enhanced fallback logic...');
     
-    // Fallback: Look for simple patterns as backup
-    const simpleTimeMatch = fullConversation.match(/(\d{1,2}):?(\d{0,2})\s*(am|pm)/i);
-    if (simpleTimeMatch) {
-      const hour = parseInt(simpleTimeMatch[1]);
-      const minute = simpleTimeMatch[2] ? parseInt(simpleTimeMatch[2]) : 0;
-      const period = simpleTimeMatch[3].toLowerCase();
-      
-      let adjustedHour = hour;
-      if (period === 'pm' && hour !== 12) adjustedHour += 12;
-      if (period === 'am' && hour === 12) adjustedHour = 0;
-      
-      // Default to tomorrow if no specific date found
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const dateStr = tomorrow.toISOString().split('T')[0];
-      
-      startTime = `${dateStr} ${adjustedHour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}:00`;
-      endTime = `${dateStr} ${((adjustedHour + 1) % 24).toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}:00`;
+    // CRITICAL FIX: Use the enhanced fallback extraction that prioritizes AI response parsing
+    const fallbackResult = extractFallbackDateTime(aiResponse, userMessage, timezone);
+    
+    if (fallbackResult.success) {
+      startTime = fallbackResult.startTime;
+      endTime = fallbackResult.endTime;
+      console.log('Enhanced fallback extraction successful:', startTime, endTime);
+    } else {
+      console.log('No specific date/time found - returning null to trigger clarification request');
+      // Don't default to anything - return null to trigger clarification request in AI response
+      startTime = null;
+      endTime = null;
     }
   }
 
@@ -1714,6 +1765,154 @@ async function generateICSFile(appointmentDetails: any) {
       error: error.message || 'Failed to generate calendar file'
     };
   }
+}
+
+// Enhanced fallback datetime extraction for AI responses
+function extractFallbackDateTime(aiResponse: string, userMessage: string, timezone: string) {
+  try {
+    console.log('Fallback extraction - AI Response:', aiResponse);
+    
+    // PRIORITY 1: Look for EXACT structured dates in AI response first
+    const structuredPatterns = [
+      // "Tuesday, August 19, 2025, at 2:00 PM" or "August 19, 2025, at 2:00 PM"
+      /(\w+,?\s+)?(\w+)\s+(\d{1,2}),?\s+(\d{4}),?\s+at\s+(\d{1,2}):?(\d{0,2})\s*(AM|PM)/i,
+      // "Wednesday, August 20, 2025, at 12:00 PM" 
+      /(\w+),\s+(\w+)\s+(\d{1,2}),\s+(\d{4}),\s+at\s+(\d{1,2}):(\d{2})\s*(AM|PM)/i,
+    ];
+
+    for (const pattern of structuredPatterns) {
+      const match = aiResponse.match(pattern);
+      if (match) {
+        console.log('Structured pattern matched:', match[0]);
+        
+        // Extract components based on pattern
+        let month, day, year, hour, minute, period;
+        
+        if (match.length >= 8) {
+          // Full format with day name: "Tuesday, August 19, 2025, at 2:00 PM"
+          [, , month, day, year, hour, minute = '00', period] = match;
+        } else if (match.length >= 7) {
+          // Without day name: "August 19, 2025, at 2:00 PM"  
+          [, month, day, year, hour, minute = '00', period] = match;
+        }
+        
+        const date = parseFullDate(month, day, year);
+        const time = parseTime12Hour(hour, minute, period);
+        
+        if (date && time) {
+          const startTime = `${date} ${time}:00`;
+          const endTime = `${date} ${addOneHour(time)}:00`;
+          console.log('Structured extraction success:', startTime, endTime);
+          return { success: true, startTime, endTime };
+        }
+      }
+    }
+
+    // PRIORITY 2: Look for day + time patterns in AI response
+    const dayTimePatterns = [
+      // "Monday at 9:00 AM", "Thursday at 8:30 AM"
+      /(\w+)\s+at\s+(\d{1,2}):?(\d{0,2})\s*(AM|PM)/i,
+      // "Tuesday, 9:00 AM"
+      /(\w+),?\s+(\d{1,2}):(\d{2})\s*(AM|PM)/i
+    ];
+
+    for (const pattern of dayTimePatterns) {
+      const match = aiResponse.match(pattern);
+      if (match) {
+        console.log('Day-time pattern matched:', match[0]);
+        
+        const [, dayName, hour, minute = '00', period] = match;
+        const date = getNextDateForDay(dayName);
+        const time = parseTime12Hour(hour, minute, period);
+        
+        if (date && time) {
+          const startTime = `${date} ${time}:00`;
+          const endTime = `${date} ${addOneHour(time)}:00`;
+          console.log('Day-time extraction success:', startTime, endTime);
+          return { success: true, startTime, endTime };
+        }
+      }
+    }
+
+    // PRIORITY 3: Extract month-day from AI response
+    const monthDayPatterns = [
+      // "August 19th at 2:00 PM"
+      /(\w+)\s+(\d{1,2})(?:st|nd|rd|th)?\s+at\s+(\d{1,2}):?(\d{0,2})\s*(AM|PM)/i
+    ];
+
+    for (const pattern of monthDayPatterns) {
+      const match = aiResponse.match(pattern);
+      if (match) {
+        console.log('Month-day pattern matched:', match[0]);
+        
+        const [, month, day, hour, minute = '00', period] = match;
+        const currentYear = new Date().getFullYear();
+        const date = parseFullDate(month, day, currentYear.toString());
+        const time = parseTime12Hour(hour, minute, period);
+        
+        if (date && time) {
+          const startTime = `${date} ${time}:00`;
+          const endTime = `${date} ${addOneHour(time)}:00`;
+          console.log('Month-day extraction success:', startTime, endTime);
+          return { success: true, startTime, endTime };
+        }
+      }
+    }
+    
+    console.log('No fallback patterns matched');
+    return { success: false };
+  } catch (error) {
+    console.error('Fallback datetime extraction error:', error);
+    return { success: false };
+  }
+}
+
+// Helper functions for fallback extraction
+function parseFullDate(month: string, day: string, year: string): string | null {
+  const monthNames = ['january', 'february', 'march', 'april', 'may', 'june',
+                     'july', 'august', 'september', 'october', 'november', 'december'];
+  const monthIndex = monthNames.findIndex(m => m.toLowerCase() === month.toLowerCase());
+  
+  if (monthIndex === -1) return null;
+  
+  const monthNum = (monthIndex + 1).toString().padStart(2, '0');
+  const dayNum = parseInt(day).toString().padStart(2, '0');
+  
+  return `${year}-${monthNum}-${dayNum}`;
+}
+
+function parseTime12Hour(hour: string, minute: string, period: string): string | null {
+  let hourNum = parseInt(hour);
+  let minuteNum = parseInt(minute) || 0;
+  
+  if (period.toLowerCase() === 'pm' && hourNum !== 12) hourNum += 12;
+  if (period.toLowerCase() === 'am' && hourNum === 12) hourNum = 0;
+  
+  return `${hourNum.toString().padStart(2, '0')}:${minuteNum.toString().padStart(2, '0')}`;
+}
+
+function addOneHour(time: string): string {
+  const [hour, minute] = time.split(':').map(Number);
+  const newHour = (hour + 1) % 24;
+  return `${newHour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+}
+
+function getNextDateForDay(dayName: string): string | null {
+  const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  const targetDay = dayNames.findIndex(d => d.toLowerCase() === dayName.toLowerCase());
+  
+  if (targetDay === -1) return null;
+  
+  const today = new Date();
+  const currentDay = today.getDay();
+  let daysUntilTarget = targetDay - currentDay;
+  
+  if (daysUntilTarget <= 0) daysUntilTarget += 7; // Next week
+  
+  const targetDate = new Date(today);
+  targetDate.setDate(today.getDate() + daysUntilTarget);
+  
+  return targetDate.toISOString().split('T')[0];
 }
 
 // Helper functions
